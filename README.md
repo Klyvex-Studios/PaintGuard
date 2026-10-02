@@ -1,7 +1,7 @@
 # 🛡️ VaultGuard 360 Antivirus & Vaccine Suite
 *Created by Klyvex Studios - Version v1.0.0*
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-v1.0.0-68dba9.svg)](#architecture-overview)
 [![Security Architecture](https://img.shields.io/badge/Security-VaultGuard%20360-2563eb.svg)](#architecture-overview)
 [![.NET 8 SDK](https://img.shields.io/badge/.NET-8.0%20WPF-512bd4.svg)](#-native-desktop-application--installer-build-guide)
@@ -51,7 +51,7 @@ graph TD
     subgraph ENGINE ["VaultGuard Core Modules"]
         DET_P["VaultGuard.PaintGeacata.psm1<br/>Paint / Geacata Detector"]
         DET_S["VaultGuard.ShortcutWorm.psm1<br/>Shortcut Worm Detector"]
-        DET_E["VaultGuard.Expiro.psm1<br/>Expiro PE Inspector"]
+        DET_E["VaultGuard.Expiro PE Inspector"]
         VAULT["VaultGuard.Vault.psm1<br/>Triple Vault & Snapshot System"]
         PER["VaultGuard.Persistence.psm1<br/>Registry, Tasks, WMI & Startup Audit"]
         VAC["VaultGuard.Vaccine.psm1<br/>AutoRun Policy & USB Watcher Service"]
@@ -168,6 +168,7 @@ If you experience any UI/UX glitches, endpoint scanning bugs, or technical issue
 
 ## 📜 License
 
-Created by **Klyvex Studios**. Distributed under the [MIT License](LICENSE).  
+Created by **Klyvex Studios**. Current and future original versions are distributed under the [proprietary license](LICENSE). Historical versions previously released under MIT retain the MIT permissions already granted for those versions; see `LICENSE` for the licensing-history notice.
+
 For security guidelines, see [SECURITY.md](SECURITY.md).  
 For contribution details, see [CONTRIBUTING.md](CONTRIBUTING.md).
