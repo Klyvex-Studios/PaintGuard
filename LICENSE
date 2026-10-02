@@ -1,21 +1,17 @@
-MIT License
+PROPRIETARY SOFTWARE LICENSE — ALL RIGHTS RESERVED
 
-Copyright (c) 2026 Klyvex Studios - VaultGuard 360 Security Team
+Copyright (c) 2026 Klyvex Studios - VaultGuard 360 Security Team. All Rights Reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+This repository contains proprietary software and related original materials owned by Klyvex Studios and/or the applicable copyright holders.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+Except for third-party components that carry their own license notices, no permission is granted to use, copy, reproduce, modify, merge, publish, distribute, sublicense, sell, rent, host, deploy, make available as a service, or create derivative works from the original portions of this repository without prior written permission from the copyright holder.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+Access to the source code, whether through a public or private repository, does not itself grant any license or ownership rights.
+
+Third-party libraries, frameworks, fonts, assets, datasets, and other materials remain subject to their respective licenses and terms. Nothing in this notice overrides those rights. Contributor-owned material, if any, remains subject to the rights actually granted by its contributor.
+
+LICENSING HISTORY
+
+Earlier versions and commits of this project that were distributed under the MIT License remain licensed to recipients under the MIT terms applicable to those versions. This proprietary license does not revoke rights that were validly granted under the MIT License before this change. Unless a later file, release, or written agreement states otherwise, new original versions and contributions distributed from this licensing change forward are provided under this proprietary license.
+
+THE ORIGINAL PORTIONS OF THE SOFTWARE ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY ARISING FROM THE SOFTWARE OR ITS USE.
