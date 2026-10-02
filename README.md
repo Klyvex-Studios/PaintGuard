@@ -51,7 +51,7 @@ graph TD
     subgraph ENGINE ["VaultGuard Core Modules"]
         DET_P["VaultGuard.PaintGeacata.psm1<br/>Paint / Geacata Detector"]
         DET_S["VaultGuard.ShortcutWorm.psm1<br/>Shortcut Worm Detector"]
-        DET_E["VaultGuard.Expiro PE Inspector"]
+        DET_E["VaultGuard.Expiro.psm1<br/>Expiro PE Inspector"]
         VAULT["VaultGuard.Vault.psm1<br/>Triple Vault & Snapshot System"]
         PER["VaultGuard.Persistence.psm1<br/>Registry, Tasks, WMI & Startup Audit"]
         VAC["VaultGuard.Vaccine.psm1<br/>AutoRun Policy & USB Watcher Service"]
