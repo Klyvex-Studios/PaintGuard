@@ -3,177 +3,86 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="0,0,0,20">
+            <DockPanel Margin="0,0,0,20">
+                <StackPanel>
+                    <TextBlock Text="Security overview" Foreground="{StaticResource BrushTextMain}" FontSize="24" FontWeight="SemiBold" />
+                    <TextBlock Text="Live protection state, scans, vault health and recovery actions." Foreground="{StaticResource BrushTextMuted}" FontSize="12" Margin="0,3,0,0" />
+                </StackPanel>
+                <Button Content="Quick scan" Style="{StaticResource PrimaryButtonStyle}" HorizontalAlignment="Right" VerticalAlignment="Center" Click="QuickScan_Click" />
+            </DockPanel>
 
-            <!-- 3-Column Bento Grid Row -->
-            <Grid Margin="0,0,0,24">
+            <Grid Margin="0,0,0,18">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="2*" />
+                    <ColumnDefinition Width="1.7*" />
                     <ColumnDefinition Width="16" />
                     <ColumnDefinition Width="1*" />
                     <ColumnDefinition Width="16" />
                     <ColumnDefinition Width="1*" />
                 </Grid.ColumnDefinitions>
 
-                <!-- Central Status Card -->
-                <Border Grid.Column="0" Style="{StaticResource StitchCardStyle}" Height="340">
-                    <Grid>
-                        <TextBlock Text="SYS_STATE: SECURE" Foreground="{StaticResource BrushSecondary}" FontFamily="Consolas" FontSize="11" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Top" />
-                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                            <!-- Glowing Status Ring -->
-                            <Grid Width="180" Height="180" Margin="0,0,0,16">
-                                <Ellipse Stroke="{StaticResource BrushSecondary}" StrokeThickness="4">
-                                    <Ellipse.Effect>
-                                        <DropShadowEffect Color="#68DBA9" BlurRadius="25" ShadowDepth="0" Opacity="0.6" />
-                                    </Ellipse.Effect>
-                                </Ellipse>
-                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                                    <TextBlock Text="🛡️" FontSize="44" HorizontalAlignment="Center" Margin="0,0,0,4" />
-                                    <TextBlock Text="Protected" Foreground="{StaticResource BrushTextMain}" FontSize="24" FontWeight="Bold" HorizontalAlignment="Center" />
-                                    <TextBlock Text="Real-Time Engine Active" Foreground="{StaticResource BrushTextMuted}" FontSize="12" HorizontalAlignment="Center" Margin="0,4,0,0" />
-                                </StackPanel>
-                            </Grid>
-
-                            <Button Content="⚡  EXECUTE QUICK SCAN NOW" Style="{StaticResource PrimaryButtonStyle}" Click="QuickScan_Click" Padding="24,12" FontSize="12" />
-                        </StackPanel>
-                    </Grid>
-                </Border>
-
-                <!-- Real-Time Protection Card -->
-                <Border Grid.Column="2" Style="{StaticResource StitchCardStyle}" Height="340">
+                <Border Grid.Column="0" Style="{StaticResource StitchCardStyle}" MinHeight="240">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
-
-                        <DockPanel Grid.Row="0" Margin="0,0,0,16">
-                            <TextBlock Text="Real-Time Protection" Foreground="{StaticResource BrushPrimary}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" />
-                            <Border Background="{StaticResource BrushSecondaryContainer}" CornerRadius="4" Padding="6,2" HorizontalAlignment="Right">
-                                <TextBlock Text="ACTIVE" Foreground="#00311F" FontSize="10" FontWeight="Bold" FontFamily="Consolas" />
+                        <DockPanel>
+                            <TextBlock Text="Protection status" Foreground="{StaticResource BrushTextMain}" FontWeight="SemiBold" FontSize="14" />
+                            <Border Style="{StaticResource StatusPillStyle}" HorizontalAlignment="Right">
+                                <TextBlock Text="LIVE ENGINE" Foreground="{StaticResource BrushPrimaryContainer}" FontSize="9" FontWeight="Bold" />
                             </Border>
                         </DockPanel>
-
-                        <StackPanel Grid.Row="1">
-                            <Border Style="{StaticResource CardInnerStyle}" Margin="0,0,0,12">
-                                <StackPanel>
-                                    <DockPanel>
-                                        <TextBlock Text="USB Watcher" Foreground="{StaticResource BrushTextMain}" FontSize="12" FontWeight="Bold" />
-                                        <TextBlock Text="✓" Foreground="{StaticResource BrushSecondary}" FontSize="14" FontWeight="Bold" HorizontalAlignment="Right" />
-                                    </DockPanel>
-                                    <TextBlock Text="VolumeChangeEvent: LISTEN" Foreground="{StaticResource BrushTextMuted}" FontFamily="Consolas" FontSize="11" Margin="0,4,0,0" />
-                                </StackPanel>
-                            </Border>
-
-                            <Border Style="{StaticResource CardInnerStyle}">
-                                <StackPanel>
-                                    <DockPanel>
-                                        <TextBlock Text="Network Guard" Foreground="{StaticResource BrushTextMain}" FontSize="12" FontWeight="Bold" />
-                                        <TextBlock Text="✓" Foreground="{StaticResource BrushSecondary}" FontSize="14" FontWeight="Bold" HorizontalAlignment="Right" />
-                                    </DockPanel>
-                                    <TextBlock Text="Traffic: IN/OUT SECURE" Foreground="{StaticResource BrushTextMuted}" FontFamily="Consolas" FontSize="11" Margin="0,4,0,0" />
-                                </StackPanel>
-                            </Border>
+                        <StackPanel Grid.Row="1" VerticalAlignment="Center" Margin="0,20">
+                            <TextBlock Text="{Binding SystemStatus}" Foreground="{StaticResource BrushPrimary}" FontSize="32" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding StatusDetail}" Foreground="{StaticResource BrushTextMuted}" FontSize="13" TextWrapping="Wrap" Margin="0,6,0,0" />
                         </StackPanel>
-
-                        <DockPanel Grid.Row="2" Margin="0,12,0,0">
-                            <TextBlock Text="Port: 18443" Foreground="{StaticResource BrushTextMuted}" FontFamily="Consolas" FontSize="11" />
-                            <TextBlock Text="Auth: Bearer" Foreground="{StaticResource BrushTextMuted}" FontFamily="Consolas" FontSize="11" HorizontalAlignment="Right" />
-                        </DockPanel>
+                        <TextBlock Grid.Row="2" Text="Protection claims are now driven by engine state, not hard-coded UI labels." Foreground="{StaticResource BrushTextMuted}" FontSize="10" TextWrapping="Wrap" />
                     </Grid>
                 </Border>
 
-                <!-- Security Health Card -->
-                <Border Grid.Column="4" Style="{StaticResource StitchCardStyle}" Height="340">
+                <Border Grid.Column="2" Style="{StaticResource StitchCardStyle}">
                     <StackPanel>
-                        <DockPanel Margin="0,0,0,20">
-                            <TextBlock Text="Security Health" Foreground="{StaticResource BrushPrimary}" FontSize="15" FontWeight="Bold" />
-                            <TextBlock Text="ACL_STATUS" Foreground="{StaticResource BrushTextMuted}" FontFamily="Consolas" FontSize="11" HorizontalAlignment="Right" />
+                        <TextBlock Text="Last scan" Foreground="{StaticResource BrushTextMain}" FontWeight="SemiBold" FontSize="14" />
+                        <TextBlock Text="{Binding LastScanFiles, StringFormat={}{0:N0}}" Foreground="{StaticResource BrushPrimary}" FontSize="30" FontWeight="SemiBold" Margin="0,24,0,0" />
+                        <TextBlock Text="files inspected" Foreground="{StaticResource BrushTextMuted}" FontSize="11" />
+                        <Border Height="1" Background="{StaticResource BrushOutline}" Margin="0,16" />
+                        <DockPanel>
+                            <TextBlock Text="Threats" Foreground="{StaticResource BrushTextMuted}" FontSize="11" />
+                            <TextBlock Text="{Binding LastThreats}" Foreground="{StaticResource BrushError}" FontWeight="SemiBold" HorizontalAlignment="Right" />
                         </DockPanel>
+                    </StackPanel>
+                </Border>
 
-                        <StackPanel Margin="0,0,0,20">
-                            <DockPanel Margin="0,0,0,6">
-                                <TextBlock Text="Baseline Vault" Foreground="{StaticResource BrushTextMain}" FontSize="12" />
-                                <TextBlock Text="Intact" Foreground="{StaticResource BrushSecondary}" FontWeight="Bold" FontSize="12" HorizontalAlignment="Right" />
-                            </DockPanel>
-                            <ProgressBar Value="100" Height="8" Background="{StaticResource BrushSurfaceVariant}" Foreground="{StaticResource BrushSecondary}" BorderThickness="0" />
-                            <TextBlock Text="ACL: Read-Only System, Admin Write" Foreground="{StaticResource BrushTextMuted}" FontFamily="Consolas" FontSize="10" Margin="0,4,0,0" />
-                        </StackPanel>
-
-                        <StackPanel>
-                            <DockPanel Margin="0,0,0,6">
-                                <TextBlock Text="Quarantine Vault" Foreground="{StaticResource BrushTextMain}" FontSize="12" />
-                                <TextBlock Text="Secured" Foreground="{StaticResource BrushPrimary}" FontWeight="Bold" FontSize="12" HorizontalAlignment="Right" />
-                            </DockPanel>
-                            <ProgressBar Value="100" Height="8" Background="{StaticResource BrushSurfaceVariant}" Foreground="{StaticResource BrushPrimary}" BorderThickness="0" />
-                            <TextBlock Text="ACL: No Execute, Admin Read/Delete" Foreground="{StaticResource BrushTextMuted}" FontFamily="Consolas" FontSize="10" Margin="0,4,0,0" />
-                        </StackPanel>
+                <Border Grid.Column="4" Style="{StaticResource StitchCardStyle}">
+                    <StackPanel>
+                        <TextBlock Text="Quarantine" Foreground="{StaticResource BrushTextMain}" FontWeight="SemiBold" FontSize="14" />
+                        <TextBlock Text="{Binding QuarantineCount}" Foreground="{StaticResource BrushTertiary}" FontSize="30" FontWeight="SemiBold" Margin="0,24,0,0" />
+                        <TextBlock Text="isolated item(s)" Foreground="{StaticResource BrushTextMuted}" FontSize="11" />
+                        <TextBlock Text="Open Vault &amp; Quarantine to inspect, restore or permanently remove items." Foreground="{StaticResource BrushTextMuted}" FontSize="10" TextWrapping="Wrap" Margin="0,16,0,0" />
                     </StackPanel>
                 </Border>
             </Grid>
 
-            <!-- 4-Rung Remediation Tracker Card -->
             <Border Style="{StaticResource StitchCardStyle}">
-                <StackPanel>
-                    <DockPanel Margin="0,0,0,16">
-                        <StackPanel>
-                            <TextBlock Text="4-Rung Remediation Tracker" Foreground="{StaticResource BrushPrimary}" FontSize="16" FontWeight="Bold" />
-                            <TextBlock Text="Multi-family malware neutralization engine across system drives." Foreground="{StaticResource BrushTextMuted}" FontSize="12" Margin="0,2,0,0" />
-                        </StackPanel>
-
-                        <Button Content="⚡  REMEDIATE TARGET NOW" Style="{StaticResource PrimaryButtonStyle}" HorizontalAlignment="Right" Click="Remediate_Click" />
-                    </DockPanel>
-
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="12" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="12" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="12" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-
-                        <!-- Step 1 -->
-                        <Border Grid.Column="0" Style="{StaticResource CardInnerStyle}" BorderBrush="{StaticResource BrushSecondary}" BorderThickness="4,1,1,1">
-                            <StackPanel>
-                                <TextBlock Text="STEP 1" Foreground="{StaticResource BrushTextMuted}" FontFamily="Consolas" FontSize="10" />
-                                <TextBlock Text="Kill Process" Foreground="{StaticResource BrushTextMain}" FontSize="13" FontWeight="Bold" Margin="0,4,0,2" />
-                                <TextBlock Text="Terminates malware payloads in memory." Foreground="{StaticResource BrushTextMuted}" FontSize="11" TextWrapping="Wrap" />
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Step 2 -->
-                        <Border Grid.Column="2" Style="{StaticResource CardInnerStyle}" BorderBrush="{StaticResource BrushSecondary}" BorderThickness="4,1,1,1">
-                            <StackPanel>
-                                <TextBlock Text="STEP 2" Foreground="{StaticResource BrushTextMuted}" FontFamily="Consolas" FontSize="10" />
-                                <TextBlock Text="Vault Restore" Foreground="{StaticResource BrushTextMain}" FontSize="13" FontWeight="Bold" Margin="0,4,0,2" />
-                                <TextBlock Text="Replaces infected binaries with clean copies." Foreground="{StaticResource BrushTextMuted}" FontSize="11" TextWrapping="Wrap" />
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Step 3 -->
-                        <Border Grid.Column="4" Style="{StaticResource CardInnerStyle}" BorderBrush="{StaticResource BrushSecondary}" BorderThickness="4,1,1,1">
-                            <StackPanel>
-                                <TextBlock Text="STEP 3" Foreground="{StaticResource BrushTextMuted}" FontFamily="Consolas" FontSize="10" />
-                                <TextBlock Text="SFC / DISM" Foreground="{StaticResource BrushTextMain}" FontSize="13" FontWeight="Bold" Margin="0,4,0,2" />
-                                <TextBlock Text="Cleans infected registry run keys &amp; WMI hooks." Foreground="{StaticResource BrushTextMuted}" FontSize="11" TextWrapping="Wrap" />
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Step 4 -->
-                        <Border Grid.Column="6" Style="{StaticResource CardInnerStyle}" BorderBrush="{StaticResource BrushSecondary}" BorderThickness="4,1,1,1">
-                            <StackPanel>
-                                <TextBlock Text="STEP 4" Foreground="{StaticResource BrushTextMuted}" FontFamily="Consolas" FontSize="10" />
-                                <TextBlock Text="Alerts &amp; Traps" Foreground="{StaticResource BrushTextMain}" FontSize="13" FontWeight="Bold" Margin="0,4,0,2" />
-                                <TextBlock Text="Deploys read-only dummy autorun.inf traps." Foreground="{StaticResource BrushTextMuted}" FontSize="11" TextWrapping="Wrap" />
-                            </StackPanel>
-                        </Border>
-                    </Grid>
-                </StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="Detection &amp; recovery pipeline" Foreground="{StaticResource BrushTextMain}" FontSize="16" FontWeight="SemiBold" />
+                        <TextBlock Text="Scan → classify → quarantine → restore from verified baseline → repair persistence → harden removable media." Foreground="{StaticResource BrushTextMuted}" FontSize="11" Margin="0,4,0,16" />
+                        <WrapPanel>
+                            <Border Style="{StaticResource CardInnerStyle}" Margin="0,0,10,10"><TextBlock Text="1  Detect" Foreground="{StaticResource BrushTextMain}" /></Border>
+                            <Border Style="{StaticResource CardInnerStyle}" Margin="0,0,10,10"><TextBlock Text="2  Isolate" Foreground="{StaticResource BrushTextMain}" /></Border>
+                            <Border Style="{StaticResource CardInnerStyle}" Margin="0,0,10,10"><TextBlock Text="3  Restore" Foreground="{StaticResource BrushTextMain}" /></Border>
+                            <Border Style="{StaticResource CardInnerStyle}" Margin="0,0,10,10"><TextBlock Text="4  Harden" Foreground="{StaticResource BrushTextMain}" /></Border>
+                        </WrapPanel>
+                    </StackPanel>
+                    <Button Grid.Column="1" Content="Run remediation" Style="{StaticResource SecondaryButtonStyle}" Margin="20,0,0,0" VerticalAlignment="Center" Click="Remediate_Click" />
+                </Grid>
             </Border>
-
         </StackPanel>
     </ScrollViewer>
 </UserControl>
