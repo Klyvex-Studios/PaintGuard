@@ -3,26 +3,26 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:views="clr-namespace:VaultGuard360.Views"
         xmlns:vm="clr-namespace:VaultGuard360.ViewModels"
-        Title="VaultGuard 360 Antivirus"
-        Height="720" Width="1180" MinWidth="980" MinHeight="600"
+        Title="VaultGuard 360"
+        Height="760" Width="1220" MinWidth="980" MinHeight="620"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
-        AllowsTransparency="True"
-        Background="Transparent">
+        ResizeMode="CanResizeWithGrip"
+        Background="{StaticResource BrushBackground}">
 
     <Window.DataContext>
         <vm:MainViewModel />
     </Window.DataContext>
 
-    <Border CornerRadius="12" Background="{StaticResource BrushBackground}" BorderBrush="{StaticResource BrushOutline}" BorderThickness="1" ClipToBounds="True">
+    <Border Background="{StaticResource BrushBackground}" BorderBrush="{StaticResource BrushOutline}" BorderThickness="1">
         <Grid>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="256" />
+                <ColumnDefinition Width="238" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
-            <!-- Left Sidebar Navigation -->
-            <Border Grid.Column="0" Background="{StaticResource BrushSurface}" BorderBrush="{StaticResource BrushOutline}" BorderThickness="0,0,1,0">
+            <!-- Dark navigation rail balances the light workspace -->
+            <Border Grid.Column="0" Background="{StaticResource BrushSidebar}">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -30,203 +30,127 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <!-- Brand Header -->
-                    <Border Grid.Row="0" Padding="20" BorderBrush="{StaticResource BrushOutline}" BorderThickness="0,0,0,1">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="🛡️" FontSize="26" VerticalAlignment="Center" Margin="0,0,10,0" />
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="VaultGuard 360" Foreground="{StaticResource BrushPrimary}" FontSize="18" FontWeight="Bold" />
-                                <TextBlock Text="V-v1.0.0 High-Security" Foreground="{StaticResource BrushTextMuted}" FontFamily="Consolas" FontSize="11" />
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
-
-                    <!-- Navigation List -->
-                    <StackPanel Grid.Row="1" Margin="8,16">
-                        <Button Content="📊  Dashboard" Style="{StaticResource NavItemButtonStyle}" Click="NavDashboard_Click" />
-                        <Button Content="🛡️  Scan Center" Style="{StaticResource NavItemButtonStyle}" Click="NavScanCenter_Click" />
-                        <Button Content="🔒  Vault Manager" Style="{StaticResource NavItemButtonStyle}" Click="NavVaultManager_Click" />
-                        <Button Content="⚙️  Security Settings" Style="{StaticResource NavItemButtonStyle}" Click="NavSettings_Click" />
+                    <StackPanel Grid.Row="0" Margin="20,22,18,20">
+                        <TextBlock Text="VAULTGUARD" Foreground="White" FontSize="20" FontWeight="Bold" />
+                        <TextBlock Text="360 Security" Foreground="{StaticResource BrushSidebarMuted}" FontSize="12" Margin="0,2,0,0" />
+                        <Border Background="#30443B" CornerRadius="10" Padding="8,4" HorizontalAlignment="Left" Margin="0,14,0,0">
+                            <TextBlock Text="Klyvex Studios" Foreground="#DDF1E8" FontSize="10" FontWeight="SemiBold" />
+                        </Border>
                     </StackPanel>
 
-                    <!-- Klyvex Attribution Footer -->
-                    <Border Grid.Row="2" Padding="16" BorderBrush="{StaticResource BrushOutline}" BorderThickness="0,1,0,0">
-                        <Border Style="{StaticResource CardInnerStyle}" Padding="10">
-                            <StackPanel HorizontalAlignment="Center">
-                                <TextBlock Text="Klyvex Studios" Foreground="{StaticResource BrushPrimary}" FontWeight="Bold" FontSize="12" HorizontalAlignment="Center" />
-                                <TextBlock Text="Antivirus &amp; Immunity Suite" Foreground="{StaticResource BrushTextMuted}" FontSize="10" HorizontalAlignment="Center" Margin="0,2,0,0" />
-                            </StackPanel>
-                        </Border>
+                    <StackPanel Grid.Row="1" Margin="10,8">
+                        <TextBlock Text="PROTECTION" Foreground="#82918A" FontSize="10" FontWeight="Bold" Margin="12,0,0,8" />
+                        <Button Content="Home" Style="{StaticResource NavItemButtonStyle}" Click="NavDashboard_Click" />
+                        <Button Content="Scan Center" Style="{StaticResource NavItemButtonStyle}" Click="NavScanCenter_Click" />
+                        <Button Content="Vault &amp; Quarantine" Style="{StaticResource NavItemButtonStyle}" Click="NavVaultManager_Click" />
+                        <Button Content="Settings" Style="{StaticResource NavItemButtonStyle}" Click="NavSettings_Click" />
+                    </StackPanel>
+
+                    <Border Grid.Row="2" Margin="14,0,14,18" Background="#26362F" CornerRadius="10" Padding="12">
+                        <StackPanel>
+                            <TextBlock Text="Engine status" Foreground="#8FA098" FontSize="10" />
+                            <TextBlock Text="{Binding DashboardVM.SystemStatus}" Foreground="White" FontSize="13" FontWeight="SemiBold" Margin="0,3,0,0" />
+                            <TextBlock Text="{Binding DashboardVM.StatusDetail}" Foreground="{StaticResource BrushSidebarMuted}" FontSize="10" TextWrapping="Wrap" Margin="0,4,0,0" />
+                        </StackPanel>
                     </Border>
                 </Grid>
             </Border>
 
-            <!-- Main Workspace Area -->
             <Grid Grid.Column="1">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="64" />
+                    <RowDefinition Height="62" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <!-- Top Header Bar (Draggable) -->
-                <Border Grid.Row="0" Background="{StaticResource BrushBackground}" BorderBrush="{StaticResource BrushOutline}" BorderThickness="0,0,0,1" Padding="24,0" MouseLeftButtonDown="Header_MouseLeftButtonDown">
-                    <DockPanel>
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="✓" Foreground="{StaticResource BrushSecondary}" FontSize="18" FontWeight="Bold" Margin="0,0,8,0" />
-                            <TextBlock Text="Created by Klyvex Studios" Foreground="{StaticResource BrushTextMain}" FontSize="14" FontWeight="Bold" />
+                <!-- Native-style title bar -->
+                <Border Grid.Row="0" Background="White" BorderBrush="{StaticResource BrushOutline}" BorderThickness="0,0,0,1" MouseLeftButtonDown="Header_MouseLeftButtonDown">
+                    <Grid Margin="22,0,10,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="VaultGuard 360" Foreground="{StaticResource BrushTextMain}" FontWeight="SemiBold" FontSize="14" />
+                            <TextBlock Text="Windows malware defense and recovery" Foreground="{StaticResource BrushTextMuted}" FontSize="10" />
                         </StackPanel>
 
-                        <!-- Top Action Icons & Quick Scan -->
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                            <!-- Top-Bar Interactive Icons -->
-                            <Button Content="🔔" FontSize="16" Background="Transparent" BorderThickness="0" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,16,0" Cursor="Hand" Click="ToggleNotifications_Click" ToolTip="Notifications &amp; Alerts" />
-                            <Button Content="🛡️" FontSize="16" Background="Transparent" BorderThickness="0" Foreground="{StaticResource BrushSecondary}" Margin="0,0,16,0" Cursor="Hand" Click="ToggleShield_Click" ToolTip="Real-Time Shield Status" />
-                            <Button Content="🔌" FontSize="16" Background="Transparent" BorderThickness="0" Foreground="{StaticResource BrushSecondary}" Margin="0,0,16,0" Cursor="Hand" Click="ToggleUsb_Click" ToolTip="USB Watchdog Status" />
-                            <Button Content="🐛" FontSize="16" Background="Transparent" BorderThickness="0" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,24,0" Cursor="Hand" Click="ToggleHeuristic_Click" ToolTip="Heuristic Scanner Details" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button x:Name="NotificationButton" Content="Alerts" Style="{StaticResource SecondaryButtonStyle}" Padding="10,6" Margin="0,0,8,0" Click="ToggleNotifications_Click" />
+                            <Button x:Name="ShieldButton" Content="Protection" Style="{StaticResource SecondaryButtonStyle}" Padding="10,6" Margin="0,0,8,0" Click="ToggleShield_Click" />
+                            <Button x:Name="UsbButton" Content="USB" Style="{StaticResource SecondaryButtonStyle}" Padding="10,6" Margin="0,0,8,0" Click="ToggleUsb_Click" />
+                            <Button Content="Quick scan" Style="{StaticResource PrimaryButtonStyle}" Padding="12,7" Margin="0,0,12,0" Click="QuickScanTop_Click" />
 
-                            <Border Width="1" Height="20" Background="{StaticResource BrushOutline}" Margin="0,0,20,0" />
-
-                            <TextBlock Text="SYSTEM IMMUNIZED" Foreground="{StaticResource BrushSecondary}" FontFamily="Consolas" FontSize="12" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,16,0" />
-                            <Button Content="⚡  QUICK SCAN" Style="{StaticResource PrimaryButtonStyle}" Click="QuickScanTop_Click" Margin="0,0,16,0" />
-
-                            <!-- Custom Window Action Controls -->
-                            <Button Content="—" FontSize="14" Background="Transparent" Foreground="{StaticResource BrushTextMuted}" BorderThickness="0" Width="36" Height="28" Cursor="Hand" Click="MinimizeWindow_Click" Margin="0,0,4,0" ToolTip="Minimize" />
-                            <Button Content="✕" FontSize="13" Background="Transparent" Foreground="{StaticResource BrushTextMuted}" BorderThickness="0" Width="36" Height="28" Cursor="Hand" Click="CloseWindow_Click" ToolTip="Close" />
+                            <Button Content="—" Background="Transparent" BorderThickness="0" Foreground="{StaticResource BrushTextMuted}" Width="38" Height="32" Click="MinimizeWindow_Click" />
+                            <Button Content="□" Background="Transparent" BorderThickness="0" Foreground="{StaticResource BrushTextMuted}" Width="38" Height="32" Click="MaximizeWindow_Click" />
+                            <Button Content="✕" Background="Transparent" BorderThickness="0" Foreground="{StaticResource BrushTextMuted}" Width="38" Height="32" Click="CloseWindow_Click" />
                         </StackPanel>
-                    </DockPanel>
-                </Border>
-
-            <!-- Active View Host -->
-            <ContentControl Grid.Row="1" Content="{Binding CurrentView}" Margin="24">
-                <ContentControl.Resources>
-                    <DataTemplate DataType="{x:Type vm:DashboardViewModel}">
-                        <views:DashboardView />
-                    </DataTemplate>
-                    <DataTemplate DataType="{x:Type vm:ScanViewModel}">
-                        <views:ScanCenterView />
-                    </DataTemplate>
-                    <DataTemplate DataType="{x:Type vm:VaultViewModel}">
-                        <views:VaultManagerView />
-                    </DataTemplate>
-                    <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
-                        <views:SecuritySettingsView />
-                    </DataTemplate>
-                </ContentControl.Resources>
-            </ContentControl>
-
-            <!-- Popup Flyout: Notifications -->
-            <Popup x:Name="NotificationPopup" IsOpen="{Binding IsNotificationFlyoutOpen}" StaysOpen="False" Placement="MousePoint">
-                <Border Style="{StaticResource StitchCardStyle}" Width="360" Height="280">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
-                        <TextBlock Text="Recent Notifications &amp; Alerts" Foreground="{StaticResource BrushPrimary}" FontSize="13" FontWeight="Bold" Margin="0,0,0,10" />
-                        <ListBox Grid.Row="1" ItemsSource="{Binding NotificationService.Notifications}" Background="Transparent" BorderThickness="0">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Style="{StaticResource CardInnerStyle}" Margin="0,0,0,6" Padding="8">
-                                        <StackPanel>
-                                            <DockPanel>
-                                                <TextBlock Text="{Binding Title}" Foreground="{StaticResource BrushPrimary}" FontWeight="Bold" FontSize="11" />
-                                                <TextBlock Text="{Binding TimeAgo}" Foreground="{StaticResource BrushTextMuted}" FontFamily="Consolas" FontSize="9" HorizontalAlignment="Right" />
-                                            </DockPanel>
-                                            <TextBlock Text="{Binding Message}" Foreground="{StaticResource BrushTextMuted}" FontSize="10" TextWrapping="Wrap" Margin="0,2,0,0" />
-                                        </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
                     </Grid>
                 </Border>
-            </Popup>
 
-            <!-- Popup Flyout: USB Status -->
-            <Popup x:Name="UsbPopup" IsOpen="{Binding IsUsbFlyoutOpen}" StaysOpen="False" Placement="MousePoint">
-                <Border Style="{StaticResource StitchCardStyle}" Width="320">
-                    <StackPanel>
-                        <DockPanel Margin="0,0,0,8">
-                            <TextBlock Text="USB Watchdog Protocol" Foreground="{StaticResource BrushSecondary}" FontSize="14" FontWeight="Bold" />
-                            <Border Background="{StaticResource BrushSecondaryContainer}" CornerRadius="4" Padding="6,2" HorizontalAlignment="Right">
-                                <TextBlock Text="ACTIVE" Foreground="#00311F" FontSize="10" FontWeight="Bold" FontFamily="Consolas" />
+                <ContentControl Grid.Row="1" Content="{Binding CurrentView}" Margin="24">
+                    <ContentControl.Resources>
+                        <DataTemplate DataType="{x:Type vm:DashboardViewModel}"><views:DashboardView /></DataTemplate>
+                        <DataTemplate DataType="{x:Type vm:ScanViewModel}"><views:ScanCenterView /></DataTemplate>
+                        <DataTemplate DataType="{x:Type vm:VaultViewModel}"><views:VaultManagerView /></DataTemplate>
+                        <DataTemplate DataType="{x:Type vm:SettingsViewModel}"><views:SecuritySettingsView /></DataTemplate>
+                    </ContentControl.Resources>
+                </ContentControl>
+
+                <Popup IsOpen="{Binding IsNotificationFlyoutOpen}" StaysOpen="False" Placement="Bottom" PlacementTarget="{Binding ElementName=NotificationButton}" AllowsTransparency="True">
+                    <Border Style="{StaticResource StitchCardStyle}" Width="360" MaxHeight="320" Margin="0,8,0,0">
+                        <StackPanel>
+                            <TextBlock Text="Recent activity" Foreground="{StaticResource BrushTextMain}" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,10" />
+                            <ListBox ItemsSource="{Binding NotificationService.Notifications}" Background="Transparent" BorderThickness="0">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Style="{StaticResource CardInnerStyle}" Margin="0,0,0,7">
+                                            <StackPanel>
+                                                <DockPanel>
+                                                    <TextBlock Text="{Binding Title}" Foreground="{StaticResource BrushTextMain}" FontWeight="SemiBold" FontSize="11" />
+                                                    <TextBlock Text="{Binding TimeAgo}" Foreground="{StaticResource BrushTextMuted}" FontSize="9" HorizontalAlignment="Right" />
+                                                </DockPanel>
+                                                <TextBlock Text="{Binding Message}" Foreground="{StaticResource BrushTextMuted}" FontSize="10" TextWrapping="Wrap" Margin="0,3,0,0" />
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </StackPanel>
+                    </Border>
+                </Popup>
+
+                <Popup IsOpen="{Binding IsUsbFlyoutOpen}" StaysOpen="False" Placement="Bottom" PlacementTarget="{Binding ElementName=UsbButton}" AllowsTransparency="True">
+                    <Border Style="{StaticResource StitchCardStyle}" Width="320" Margin="0,8,0,0">
+                        <StackPanel>
+                            <TextBlock Text="USB protection" Foreground="{StaticResource BrushTextMain}" FontSize="14" FontWeight="SemiBold" />
+                            <TextBlock Text="The PowerShell volume-arrival watcher is started with the protection engine. Connected media is vaccinated only when the live engine reports success." Foreground="{StaticResource BrushTextMuted}" FontSize="11" TextWrapping="Wrap" Margin="0,7,0,10" />
+                            <Border Style="{StaticResource CardInnerStyle}">
+                                <DockPanel>
+                                    <TextBlock Text="Live watcher" Foreground="{StaticResource BrushTextMain}" FontSize="11" />
+                                    <TextBlock Text="{Binding IsRealTimeProtected, StringFormat=Enabled: {0}}" Foreground="{StaticResource BrushSecondary}" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" />
+                                </DockPanel>
                             </Border>
-                        </DockPanel>
-                        <TextBlock Text="Connected Devices" Foreground="{StaticResource BrushTextMain}" FontSize="12" FontWeight="Bold" Margin="0,4,0,4" />
-                        <Border Style="{StaticResource CardInnerStyle}" Margin="0,0,0,8">
-                            <StackPanel>
-                                <TextBlock Text="Kingston SA400S37120G (D:\)" Foreground="{StaticResource BrushTextMain}" FontSize="11" FontWeight="Bold" />
-                                <TextBlock Text="Status: Immunized | Auto-Vaccine: Enforced" Foreground="{StaticResource BrushTextMuted}" FontSize="10" Margin="0,2,0,0" />
-                            </StackPanel>
-                        </Border>
-                        <TextBlock Text="Monitoring external mass storage insertion events (WM_DEVICECHANGE)." Foreground="{StaticResource BrushTextMuted}" FontSize="11" TextWrapping="Wrap" />
-                    </StackPanel>
-                </Border>
-            </Popup>
-
-            <!-- Popup Flyout: Shield Status -->
-            <Popup x:Name="ShieldPopup" IsOpen="{Binding IsShieldFlyoutOpen}" StaysOpen="False" Placement="MousePoint">
-                <Border Style="{StaticResource StitchCardStyle}" Width="320">
-                    <StackPanel>
-                        <TextBlock Text="Real-Time Security Shields" Foreground="{StaticResource BrushSecondary}" FontSize="14" FontWeight="Bold" Margin="0,0,0,10" />
-                        <StackPanel Margin="0,0,0,12">
-                            <DockPanel Margin="0,0,0,4">
-                                <TextBlock Text="Filesystem Real-Time Shield" Foreground="{StaticResource BrushTextMain}" FontSize="11" />
-                                <TextBlock Text="✓ ACTIVE" Foreground="{StaticResource BrushSecondary}" FontWeight="Bold" FontSize="11" HorizontalAlignment="Right" />
-                            </DockPanel>
-                            <DockPanel Margin="0,0,0,4">
-                                <TextBlock Text="USB Auto-Vaccine Watchdog" Foreground="{StaticResource BrushTextMain}" FontSize="11" />
-                                <TextBlock Text="✓ ACTIVE" Foreground="{StaticResource BrushSecondary}" FontWeight="Bold" FontSize="11" HorizontalAlignment="Right" />
-                            </DockPanel>
-                            <DockPanel Margin="0,0,0,4">
-                                <TextBlock Text="Network Traffic Guard" Foreground="{StaticResource BrushTextMain}" FontSize="11" />
-                                <TextBlock Text="✓ ACTIVE" Foreground="{StaticResource BrushSecondary}" FontWeight="Bold" FontSize="11" HorizontalAlignment="Right" />
-                            </DockPanel>
-                            <DockPanel Margin="0,0,0,4">
-                                <TextBlock Text="Heuristic Inspection Engine" Foreground="{StaticResource BrushTextMain}" FontSize="11" />
-                                <TextBlock Text="✓ ACTIVE" Foreground="{StaticResource BrushSecondary}" FontWeight="Bold" FontSize="11" HorizontalAlignment="Right" />
-                            </DockPanel>
-                            <DockPanel>
-                                <TextBlock Text="Antivirus Self-Protection" Foreground="{StaticResource BrushTextMain}" FontSize="11" />
-                                <TextBlock Text="✓ ACTIVE" Foreground="{StaticResource BrushSecondary}" FontWeight="Bold" FontSize="11" HorizontalAlignment="Right" />
-                            </DockPanel>
                         </StackPanel>
-                        <Button Content="Toggle Protection Engine" Style="{StaticResource SecondaryButtonStyle}" Click="ToggleProtection_Click" HorizontalAlignment="Stretch" />
-                    </StackPanel>
-                </Border>
-            </Popup>
+                    </Border>
+                </Popup>
 
-            <!-- Popup Flyout: Heuristics Status -->
-            <Popup x:Name="HeuristicPopup" IsOpen="{Binding IsHeuristicFlyoutOpen}" StaysOpen="False" Placement="MousePoint">
-                <Border Style="{StaticResource StitchCardStyle}" Width="320">
-                    <StackPanel>
-                        <DockPanel Margin="0,0,0,8">
-                            <TextBlock Text="Heuristic Rule Engine v4.2" Foreground="{StaticResource BrushPrimary}" FontSize="14" FontWeight="Bold" />
-                            <TextBlock Text="STATUS: ACTIVE" Foreground="{StaticResource BrushSecondary}" FontSize="10" FontWeight="Bold" FontFamily="Consolas" HorizontalAlignment="Right" />
-                        </DockPanel>
-                        <TextBlock Text="Detection Layers" Foreground="{StaticResource BrushTextMain}" FontSize="12" FontWeight="Bold" Margin="0,4,0,6" />
-                        <StackPanel Margin="0,0,0,8">
-                            <DockPanel Margin="0,0,0,3">
-                                <TextBlock Text="Static Pattern Analysis" Foreground="{StaticResource BrushTextMain}" FontSize="11" />
-                                <TextBlock Text="✓ ENFORCED" Foreground="{StaticResource BrushSecondary}" FontSize="10" HorizontalAlignment="Right" />
-                            </DockPanel>
-                            <DockPanel Margin="0,0,0,3">
-                                <TextBlock Text="High-Entropy PE Detection" Foreground="{StaticResource BrushTextMain}" FontSize="11" />
-                                <TextBlock Text="✓ ENFORCED" Foreground="{StaticResource BrushSecondary}" FontSize="10" HorizontalAlignment="Right" />
-                            </DockPanel>
-                            <DockPanel Margin="0,0,0,3">
-                                <TextBlock Text="WMI &amp; Registry Persistence Audit" Foreground="{StaticResource BrushTextMain}" FontSize="11" />
-                                <TextBlock Text="✓ ENFORCED" Foreground="{StaticResource BrushSecondary}" FontSize="10" HorizontalAlignment="Right" />
-                            </DockPanel>
-                            <DockPanel>
-                                <TextBlock Text="Script &amp; Shortcut Worm Rulebase" Foreground="{StaticResource BrushTextMain}" FontSize="11" />
-                                <TextBlock Text="✓ ENFORCED" Foreground="{StaticResource BrushSecondary}" FontSize="10" HorizontalAlignment="Right" />
-                            </DockPanel>
+                <Popup IsOpen="{Binding IsShieldFlyoutOpen}" StaysOpen="False" Placement="Bottom" PlacementTarget="{Binding ElementName=ShieldButton}" AllowsTransparency="True">
+                    <Border Style="{StaticResource StitchCardStyle}" Width="330" Margin="0,8,0,0">
+                        <StackPanel>
+                            <TextBlock Text="Protection engine" Foreground="{StaticResource BrushTextMain}" FontSize="14" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding DashboardVM.StatusDetail}" Foreground="{StaticResource BrushTextMuted}" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,10" />
+                            <Border Style="{StaticResource CardInnerStyle}" Margin="0,0,0,10">
+                                <StackPanel>
+                                    <TextBlock Text="Active detection families" Foreground="{StaticResource BrushTextMain}" FontSize="11" FontWeight="SemiBold" />
+                                    <TextBlock Text="Paint/Geacata · Shortcut worms · Expiro PE" Foreground="{StaticResource BrushTextMuted}" FontSize="10" Margin="0,3,0,0" />
+                                </StackPanel>
+                            </Border>
+                            <Button Content="Toggle live USB monitoring" Style="{StaticResource SecondaryButtonStyle}" Click="ToggleProtection_Click" HorizontalAlignment="Stretch" />
                         </StackPanel>
-                    </StackPanel>
-                </Border>
-            </Popup>
+                    </Border>
+                </Popup>
+            </Grid>
         </Grid>
-    </Grid>
-</Border>
+    </Border>
 </Window>
