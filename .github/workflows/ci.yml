@@ -44,3 +44,7 @@ jobs:
       - name: Run hardening checks
         shell: pwsh
         run: .\Tests\Hardening-Tests.ps1
+
+      - name: Run safe engine smoke test
+        shell: pwsh
+        run: .\Tests\Engine-Smoke.Tests.ps1
