@@ -1,153 +1,106 @@
 <UserControl x:Class="VaultGuard360.Views.VaultManagerView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <Grid Margin="0,0,0,20">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
 
-            <!-- Header Row -->
-            <DockPanel Grid.Row="0" Margin="0,0,0,16">
-                <StackPanel>
-                    <TextBlock Text="Triple-Vault Storage &amp; Snapshot Manager" Foreground="{StaticResource BrushPrimary}" FontSize="22" FontWeight="Bold" />
-                    <TextBlock Text="Non-destructive incident response, baseline snapshots, and isolated payload vaulting." Foreground="{StaticResource BrushTextMuted}" FontSize="12" Margin="0,2,0,0" />
-                </StackPanel>
+        <DockPanel Grid.Row="0" Margin="0,0,0,18">
+            <StackPanel>
+                <TextBlock Text="Vault &amp; quarantine" Foreground="{StaticResource BrushTextMain}" FontSize="24" FontWeight="SemiBold" />
+                <TextBlock Text="Inspect clean baselines, isolated threats and recovery storage." Foreground="{StaticResource BrushTextMuted}" FontSize="12" Margin="0,3,0,0" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Refresh" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,8,0" Click="SyncVault_Click" />
+                <Button Content="Create baseline" Style="{StaticResource PrimaryButtonStyle}" Margin="0,0,8,0" Click="CreateSnapshot_Click" />
+                <Button Content="Run remediation" Style="{StaticResource SecondaryButtonStyle}" Click="RunExpiroRemediation_Click" />
+            </StackPanel>
+        </DockPanel>
 
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button Content="📸  CREATE BASELINE SNAPSHOT" Style="{StaticResource PrimaryButtonStyle}" Margin="0,0,10,0" Click="CreateSnapshot_Click" />
-                    <Button Content="🛡️  RUN EXPIRO REMEDIATION" Style="{StaticResource SecondaryButtonStyle}" Click="RunExpiroRemediation_Click" />
-                </StackPanel>
+        <Border Grid.Row="1" Style="{StaticResource CardInnerStyle}" Margin="0,0,0,18">
+            <DockPanel>
+                <TextBlock Text="Storage status" Foreground="{StaticResource BrushTextMuted}" FontSize="10" FontWeight="SemiBold" Margin="0,0,10,0" />
+                <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource BrushTextMain}" FontSize="11" />
             </DockPanel>
+        </Border>
 
-            <!-- Status Banner -->
-            <Border Grid.Row="1" Style="{StaticResource CardInnerStyle}" Margin="0,0,0,20">
-                <DockPanel>
-                    <TextBlock Text="⚡ STATUS:" Foreground="{StaticResource BrushSecondary}" FontWeight="Bold" FontSize="11" Margin="0,0,8,0" VerticalAlignment="Center" />
-                    <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource BrushTextMain}" FontSize="12" VerticalAlignment="Center" />
-                </DockPanel>
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1.05*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="1.3*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Style="{StaticResource StitchCardStyle}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0" Margin="0,0,0,12">
+                        <TextBlock Text="Clean baseline" Foreground="{StaticResource BrushTextMain}" FontSize="15" FontWeight="SemiBold" />
+                        <TextBlock Text="Independent clean executable copies captured by the engine." Foreground="{StaticResource BrushTextMuted}" FontSize="10" TextWrapping="Wrap" Margin="0,3,0,0" />
+                    </StackPanel>
+                    <ListBox Grid.Row="1" ItemsSource="{Binding BaselineAssets}" Background="Transparent" BorderThickness="0">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border Style="{StaticResource CardInnerStyle}" Margin="0,0,0,7">
+                                    <StackPanel>
+                                        <DockPanel>
+                                            <TextBlock Text="{Binding Name}" Foreground="{StaticResource BrushTextMain}" FontSize="11" FontWeight="SemiBold" />
+                                            <TextBlock Text="{Binding Status}" Foreground="{StaticResource BrushSecondary}" FontSize="9" FontWeight="Bold" HorizontalAlignment="Right" />
+                                        </DockPanel>
+                                        <TextBlock Text="{Binding Hash}" Foreground="{StaticResource BrushTextMuted}" FontFamily="Consolas" FontSize="9" Margin="0,3,0,0" />
+                                        <TextBlock Text="{Binding Path}" Foreground="{StaticResource BrushTextMuted}" FontSize="9" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Grid>
             </Border>
 
-            <!-- Main Triple-Vault Columns -->
-            <Grid Grid.Row="2">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="16" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="16" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
+            <Border Grid.Column="2" Style="{StaticResource StitchCardStyle}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0" Margin="0,0,0,12">
+                        <TextBlock Text="Quarantine" Foreground="{StaticResource BrushTextMain}" FontSize="15" FontWeight="SemiBold" />
+                        <TextBlock Text="Files shown here are real quarantine records from the protected vault." Foreground="{StaticResource BrushTextMuted}" FontSize="10" TextWrapping="Wrap" Margin="0,3,0,0" />
+                    </StackPanel>
 
-                <!-- 1. Baseline Vault -->
-                <Border Grid.Column="0" Style="{StaticResource StitchCardStyle}">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
+                    <ListBox x:Name="QuarantineList" Grid.Row="1" ItemsSource="{Binding QuarantinedAssets}" Background="Transparent" BorderThickness="0">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border Style="{StaticResource CardInnerStyle}" BorderBrush="{StaticResource BrushError}" BorderThickness="3,1,1,1" Margin="0,0,0,7">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Name}" Foreground="{StaticResource BrushTextMain}" FontSize="11" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding Status}" Foreground="{StaticResource BrushError}" FontSize="9" TextWrapping="Wrap" Margin="0,3,0,0" />
+                                        <TextBlock Text="{Binding Path}" Foreground="{StaticResource BrushTextMuted}" FontSize="9" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+                                        <TextBlock Text="{Binding Hash}" Foreground="{StaticResource BrushTextMuted}" FontFamily="Consolas" FontSize="9" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
 
-                        <DockPanel Grid.Row="0" Margin="0,0,0,10">
-                            <TextBlock Text="Baseline Vault" Foreground="{StaticResource BrushPrimary}" FontSize="15" FontWeight="Bold" />
-                            <Border Background="rgba(104, 219, 169, 0.1)" CornerRadius="4" Padding="6,2" HorizontalAlignment="Right">
-                                <TextBlock Text="VERIFIED" Foreground="{StaticResource BrushSecondary}" FontSize="10" FontWeight="Bold" FontFamily="Consolas" />
-                            </Border>
-                        </DockPanel>
-
-                        <TextBlock Grid.Row="1" Text="Verified clean binaries &amp; SHA256 hashes." Foreground="{StaticResource BrushTextMuted}" FontSize="11" Margin="0,0,0,12" />
-
-                        <ListBox Grid.Row="2" ItemsSource="{Binding BaselineAssets}" Background="Transparent" BorderThickness="0">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Style="{StaticResource CardInnerStyle}" Margin="0,0,0,6" Padding="8">
-                                        <StackPanel>
-                                            <DockPanel>
-                                                <TextBlock Text="{Binding Name}" Foreground="{StaticResource BrushTextMain}" FontSize="11" FontWeight="Bold" />
-                                                <TextBlock Text="{Binding Status}" Foreground="{StaticResource BrushSecondary}" FontSize="9" FontWeight="Bold" HorizontalAlignment="Right" />
-                                            </DockPanel>
-                                            <TextBlock Text="{Binding Hash}" Foreground="{StaticResource BrushTextMuted}" FontFamily="Consolas" FontSize="9" Margin="0,2,0,0" />
-                                        </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
+                    <Grid Grid.Row="2" Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button Grid.Column="0" Content="Restore selected" Style="{StaticResource SecondaryButtonStyle}" Click="RestoreSelected_Click" />
+                        <Button Grid.Column="2" Content="Delete permanently" Background="{StaticResource BrushErrorContainer}" Foreground="{StaticResource BrushError}" BorderBrush="#E7B7B7" BorderThickness="1" Padding="12,9" Click="DeleteSelected_Click" />
                     </Grid>
-                </Border>
-
-                <!-- 2. Golden Vault (Self-Healing Templates) -->
-                <Border Grid.Column="2" Style="{StaticResource StitchCardStyle}">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
-
-                        <DockPanel Grid.Row="0" Margin="0,0,0,10">
-                            <TextBlock Text="Golden Vault" Foreground="{StaticResource BrushSecondary}" FontSize="15" FontWeight="Bold" />
-                            <Border Background="rgba(180, 197, 255, 0.1)" CornerRadius="4" Padding="6,2" HorizontalAlignment="Right">
-                                <TextBlock Text="IMMUTABLE" Foreground="{StaticResource BrushPrimary}" FontSize="10" FontWeight="Bold" FontFamily="Consolas" />
-                            </Border>
-                        </DockPanel>
-
-                        <TextBlock Grid.Row="1" Text="Golden module templates for self-healing integrity." Foreground="{StaticResource BrushTextMuted}" FontSize="11" Margin="0,0,0,12" />
-
-                        <ListBox Grid.Row="2" ItemsSource="{Binding GoldenVaultAssets}" Background="Transparent" BorderThickness="0">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Style="{StaticResource CardInnerStyle}" Margin="0,0,0,6" Padding="8">
-                                        <StackPanel>
-                                            <DockPanel>
-                                                <TextBlock Text="{Binding Name}" Foreground="{StaticResource BrushTextMain}" FontSize="11" FontWeight="Bold" />
-                                                <TextBlock Text="{Binding Status}" Foreground="{StaticResource BrushPrimary}" FontSize="9" FontWeight="Bold" HorizontalAlignment="Right" />
-                                            </DockPanel>
-                                            <TextBlock Text="{Binding Hash}" Foreground="{StaticResource BrushTextMuted}" FontFamily="Consolas" FontSize="9" Margin="0,2,0,0" />
-                                        </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
-                    </Grid>
-                </Border>
-
-                <!-- 3. Quarantine Vault -->
-                <Border Grid.Column="4" Style="{StaticResource StitchCardStyle}" BorderBrush="{StaticResource BrushError}">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="*" />
-                        </Grid.RowDefinitions>
-
-                        <DockPanel Grid.Row="0" Margin="0,0,0,10">
-                            <TextBlock Text="Quarantine Vault" Foreground="{StaticResource BrushError}" FontSize="15" FontWeight="Bold" />
-                            <Border Background="rgba(255, 180, 171, 0.1)" CornerRadius="4" Padding="6,2" HorizontalAlignment="Right">
-                                <TextBlock Text="ISOLATED" Foreground="{StaticResource BrushError}" FontSize="10" FontWeight="Bold" FontFamily="Consolas" />
-                            </Border>
-                        </DockPanel>
-
-                        <TextBlock Grid.Row="1" Text="Encrypted threat payloads isolated from disk." Foreground="{StaticResource BrushTextMuted}" FontSize="11" Margin="0,0,0,12" />
-
-                        <ListBox Grid.Row="2" ItemsSource="{Binding QuarantinedAssets}" Background="Transparent" BorderThickness="0">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Style="{StaticResource CardInnerStyle}" Margin="0,0,0,6" Padding="8">
-                                        <StackPanel>
-                                            <DockPanel>
-                                                <TextBlock Text="{Binding Name}" Foreground="{StaticResource BrushError}" FontSize="11" FontWeight="Bold" />
-                                                <TextBlock Text="{Binding Status}" Foreground="{StaticResource BrushError}" FontSize="9" FontWeight="Bold" HorizontalAlignment="Right" />
-                                            </DockPanel>
-                                            <TextBlock Text="{Binding Path}" Foreground="{StaticResource BrushTextMuted}" FontSize="9" Margin="0,2,0,0" />
-                                        </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
-                    </Grid>
-                </Border>
-            </Grid>
+                </Grid>
+            </Border>
         </Grid>
-    </ScrollViewer>
+    </Grid>
 </UserControl>
