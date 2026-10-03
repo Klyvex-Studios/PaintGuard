@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.IO;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using VaultGuard360.Services;
@@ -8,8 +9,18 @@ namespace VaultGuard360.ViewModels
 {
     public class SettingsViewModel : INotifyPropertyChanged
     {
-        private bool _isRemovableMediaProtectionEnabled = true;
+        private bool _isRemovableMediaProtectionEnabled;
         private bool _isApplyingProtection;
+
+        public SettingsViewModel()
+        {
+            string policyState = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Klyvex Studios",
+                "VaultGuard 360",
+                "autorun-policy-state.json");
+            _isRemovableMediaProtectionEnabled = File.Exists(policyState);
+        }
 
         public bool IsRemovableMediaProtectionEnabled
         {
