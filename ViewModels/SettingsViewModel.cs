@@ -10,65 +10,70 @@ namespace VaultGuard360.ViewModels
 {
     public class SettingsViewModel : INotifyPropertyChanged
     {
-        public UsbWatcherService UsbService => UsbWatcherService.Instance;
-        public EngineService EngineService => EngineService.Instance;
+        private bool _isUsbVaccineEnabled = true;
+        private bool _isAutoRunHardened = true;
+        private bool _isApplyingProtection;
 
         public bool IsUsbVaccineEnabled
         {
-            get => UsbService.IsAutoVaccineEnabled;
-            set { UsbService.IsAutoVaccineEnabled = value; OnPropertyChanged(); }
+            get => _isUsbVaccineEnabled;
+            set
+            {
+                if (_isUsbVaccineEnabled == value) return;
+                _isUsbVaccineEnabled = value;
+                OnPropertyChanged();
+                _ = ApplyUsbProtectionAsync();
+            }
         }
 
         public bool IsAutoRunHardened
         {
-            get => UsbService.IsAutoRunHardened;
-            set { UsbService.IsAutoRunHardened = value; OnPropertyChanged(); }
+            get => _isAutoRunHardened;
+            set
+            {
+                if (_isAutoRunHardened == value) return;
+                _isAutoRunHardened = value;
+                OnPropertyChanged();
+                _ = ApplyUsbProtectionAsync();
+            }
         }
 
-        public string BearerToken => EngineService.Instance.BearerToken;
-        public int ApiPort => EngineService.Instance.ApiPort;
+        public bool IsApplyingProtection { get => _isApplyingProtection; set { _isApplyingProtection = value; OnPropertyChanged(); } }
+        public string EngineState => EngineService.Instance.EngineState;
+        public string RuntimeMode => "In-process protected runspace";
 
-        // Support & Feedback Form Fields
         private string _contactName = string.Empty;
-        public string ContactName
-        {
-            get => _contactName;
-            set { _contactName = value; OnPropertyChanged(); }
-        }
-
         private string _contactEmail = string.Empty;
-        public string ContactEmail
-        {
-            get => _contactEmail;
-            set { _contactEmail = value; OnPropertyChanged(); }
-        }
-
         private string _contactSubject = "VaultGuard 360 Support Inquiry";
-        public string ContactSubject
-        {
-            get => _contactSubject;
-            set { _contactSubject = value; OnPropertyChanged(); }
-        }
-
         private string _contactMessage = string.Empty;
-        public string ContactMessage
-        {
-            get => _contactMessage;
-            set { _contactMessage = value; OnPropertyChanged(); }
-        }
-
         private string _supportStatus = string.Empty;
-        public string SupportStatus
-        {
-            get => _supportStatus;
-            set { _supportStatus = value; OnPropertyChanged(); }
-        }
+        private bool _isSending;
 
-        private bool _isSending = false;
-        public bool IsSending
+        public string ContactName { get => _contactName; set { _contactName = value; OnPropertyChanged(); } }
+        public string ContactEmail { get => _contactEmail; set { _contactEmail = value; OnPropertyChanged(); } }
+        public string ContactSubject { get => _contactSubject; set { _contactSubject = value; OnPropertyChanged(); } }
+        public string ContactMessage { get => _contactMessage; set { _contactMessage = value; OnPropertyChanged(); } }
+        public string SupportStatus { get => _supportStatus; set { _supportStatus = value; OnPropertyChanged(); } }
+        public bool IsSending { get => _isSending; set { _isSending = value; OnPropertyChanged(); } }
+
+        private async Task ApplyUsbProtectionAsync()
         {
-            get => _isSending;
-            set { _isSending = value; OnPropertyChanged(); }
+            if (IsApplyingProtection || !EngineService.Instance.IsEngineInitialized) return;
+            IsApplyingProtection = true;
+            try
+            {
+                bool enabled = IsUsbVaccineEnabled || IsAutoRunHardened;
+                await EngineService.Instance.SetUsbProtectionAsync(enabled);
+                SupportStatus = enabled ? "USB and AutoRun protection settings applied." : "USB vaccine protections disabled.";
+            }
+            catch (Exception ex)
+            {
+                SupportStatus = $"Protection setting failed: {ex.Message}";
+            }
+            finally
+            {
+                IsApplyingProtection = false;
+            }
         }
 
         public async Task SendSupportMessageAsync()
@@ -80,31 +85,15 @@ namespace VaultGuard360.ViewModels
             }
 
             IsSending = true;
-            SupportStatus = "Sending message to admin@highqsolidacademy.com...";
+            SupportStatus = "Preparing your support message...";
 
             try
             {
-                using var client = new HttpClient();
-                client.Timeout = TimeSpan.FromSeconds(10);
-                
-                var jsonPayload = $"{{\"name\":\"{ContactName}\",\"email\":\"{ContactEmail}\",\"subject\":\"{ContactSubject}\",\"message\":\"{ContactMessage}\"}}";
-                var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
-                
-                var response = await client.PostAsync("https://formsubmit.co/ajax/admin@highqsolidacademy.com", content);
-                if (response.IsSuccessStatusCode)
-                {
-                    SupportStatus = "Message sent successfully to High Q Solid Academy Support (admin@highqsolidacademy.com).";
-                    NotificationService.Instance.AddNotification("Support Ticket", "Sent support inquiry to admin@highqsolidacademy.com", false);
-                    ContactMessage = string.Empty;
-                }
-                else
-                {
-                    OpenMailClientFallback();
-                }
-            }
-            catch
-            {
+                // Klyvex does not yet expose a dedicated support API in this repository.
+                // Use the user's mail client instead of silently posting security-product
+                // support data to an unrelated third-party endpoint.
                 OpenMailClientFallback();
+                await Task.CompletedTask;
             }
             finally
             {
@@ -116,20 +105,20 @@ namespace VaultGuard360.ViewModels
         {
             try
             {
-                string mailtoUri = $"mailto:admin@highqsolidacademy.com?subject={Uri.EscapeDataString(ContactSubject)}&body={Uri.EscapeDataString($"From: {ContactName} ({ContactEmail})\n\n{ContactMessage}")}";
+                const string supportAddress = "admin@highqsolidacademy.com";
+                string body = $"VaultGuard 360 / Klyvex Studios\n\nFrom: {ContactName} ({ContactEmail})\n\n{ContactMessage}";
+                string mailtoUri = $"mailto:{supportAddress}?subject={Uri.EscapeDataString(ContactSubject)}&body={Uri.EscapeDataString(body)}";
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(mailtoUri) { UseShellExecute = true });
-                SupportStatus = "Opened default mail client with message pre-filled to admin@highqsolidacademy.com.";
+                SupportStatus = "Opened your default mail client. A dedicated Klyvex support address can replace this fallback later.";
             }
             catch (Exception ex)
             {
-                SupportStatus = $"Direct support email: admin@highqsolidacademy.com ({ex.Message})";
+                SupportStatus = $"Could not open the mail client: {ex.Message}";
             }
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
         protected void OnPropertyChanged([CallerMemberName] string? name = null)
-        {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
-        }
+            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 }
