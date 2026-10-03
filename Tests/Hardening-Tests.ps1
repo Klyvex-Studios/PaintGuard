@@ -1,77 +1,68 @@
 # ==============================================================================
-# Script: Tests/Hardening-Tests.ps1
-# Purpose: Security & Architecture Hardening Test Suite for VaultGuard 360 WPF .NET 8
-# Author: Created by Klyvex Studios
+# VaultGuard 360 security and architecture regression checks
 # ==============================================================================
 
-Write-Host "================================================================================" -ForegroundColor Cyan
-Write-Host "          VAULTGUARD 360 - SECURITY HARDENING TEST SUITE                       " -ForegroundColor Green
-Write-Host "          Created by Klyvex Studios                                             " -ForegroundColor Yellow
-Write-Host "================================================================================" -ForegroundColor Cyan
-
+$ErrorActionPreference = "Stop"
 $AppDir = Resolve-Path (Join-Path $PSScriptRoot "..")
 $PassCount = 0
 $FailCount = 0
 
-function Assert-Test($Condition, $TestName, $Details = "") {
+function Assert-Test {
+    param([bool]$Condition, [string]$Name, [string]$Details = "")
     if ($Condition) {
-        Write-Host " [PASS] $TestName" -ForegroundColor Green
-        if ($Details) { Write-Host "        $Details" -ForegroundColor Gray }
+        Write-Host "[PASS] $Name" -ForegroundColor Green
         $script:PassCount++
     } else {
-        Write-Host " [FAIL] $TestName" -ForegroundColor Red
-        if ($Details) { Write-Host "        $Details" -ForegroundColor Yellow }
+        Write-Host "[FAIL] $Name $Details" -ForegroundColor Red
         $script:FailCount++
     }
 }
 
-# --- TEST 1: Native WPF (.NET 8) App Component Structure & Files ---
-Write-Host "`n[1] Auditing VaultGuard 360 Application Files..." -ForegroundColor Cyan
-Assert-Test (Test-Path (Join-Path $AppDir "VaultGuard360.csproj")) "Native WPF (.NET 8) Project File Exists"
-Assert-Test (Test-Path (Join-Path $AppDir "MainWindow.xaml")) "Main Window XAML File Exists"
-Assert-Test (Test-Path (Join-Path $AppDir "Build-App.ps1")) "App Build Compiler Script Exists"
-Assert-Test (Test-Path (Join-Path $AppDir "setup.iss")) "Inno Setup Installer Script Exists"
-Assert-Test (Test-Path (Join-Path $AppDir "Update-GitRemote.ps1")) "Git Remote Setup Script Exists"
+function Read-RepoFile([string]$RelativePath) {
+    Get-Content (Join-Path $AppDir $RelativePath) -Raw
+}
 
-# --- TEST 2: App Branding & Klyvex Studios Attribution ---
-Write-Host "`n[2] Verifying Klyvex Studios Attribution & Branding..." -ForegroundColor Cyan
-$mwContent = Get-Content (Join-Path $AppDir "MainWindow.xaml") -Raw
-$projContent = Get-Content (Join-Path $AppDir "VaultGuard360.csproj") -Raw
-Assert-Test ($mwContent -match "Klyvex Studios") "MainWindow XAML Includes Klyvex Studios Attribution"
-Assert-Test ($projContent -match "Klyvex Studios") "Project Metadata Includes Klyvex Studios Publisher Branding"
+Write-Host "VaultGuard 360 regression checks" -ForegroundColor Cyan
 
-# --- TEST 3: Notification & Flyout Engine ---
-Write-Host "`n[3] Auditing Notification Flyout & Alert Services..." -ForegroundColor Cyan
-$notifContent = Get-Content (Join-Path $AppDir "Services\NotificationService.cs") -Raw
-Assert-Test ($notifContent -match "NotificationService") "Notification Service Layer Initialized"
-Assert-Test ($mwContent -match "NotificationPopup") "WPF Top-Bar Interactive Notification Flyout Exists"
-Assert-Test ($mwContent -match "UsbPopup") "WPF Top-Bar Interactive USB Watchdog Flyout Exists"
+# Build/runtime structure
+Assert-Test (Test-Path (Join-Path $AppDir "VaultGuard360.csproj")) "WPF project exists"
+Assert-Test (Test-Path (Join-Path $AppDir "Services\EngineService.cs")) "Engine service exists"
+Assert-Test (Test-Path (Join-Path $AppDir "Modules\VaultGuard.Detection.psm1")) "Detection dispatcher exists"
+Assert-Test (Test-Path (Join-Path $AppDir "Modules\VaultGuard.Vault.psm1")) "Protected vault module exists"
 
-# --- TEST 4: Auto-Startup Registry Capability ---
-Write-Host "`n[4] Auditing Windows Auto-Startup Capability..." -ForegroundColor Cyan
-$issContent = Get-Content (Join-Path $AppDir "setup.iss") -Raw
-Assert-Test ($issContent -match "Software\\Microsoft\\Windows\\CurrentVersion\\Run") "Inno Setup Script Bundles Auto-Startup Registry Key"
+$engine = Read-RepoFile "Services\EngineService.cs"
+$scanVm = Read-RepoFile "ViewModels\ScanViewModel.cs"
+$dashboardVm = Read-RepoFile "ViewModels\DashboardViewModel.cs"
+$mainVm = Read-RepoFile "ViewModels\MainViewModel.cs"
+$vault = Read-RepoFile "Modules\VaultGuard.Vault.psm1"
+$project = Read-RepoFile "VaultGuard360.csproj"
 
-# --- TEST 5: REST API Security Controls in Engine ---
-Write-Host "`n[5] Auditing REST API Security Controls in Engine..." -ForegroundColor Cyan
-$engineContent = Get-Content (Join-Path $AppDir "PaintGuardEngine.ps1") -Raw
-Assert-Test ($engineContent -match "Authorization") "Engine Enforces Authorization Header Checks"
-Assert-Test ($engineContent -match "Bearer") "Engine Enforces Cryptographic Bearer Token Validation"
+# Real engine integration
+Assert-Test ($engine -match "RunspaceFactory\.CreateRunspace") "Desktop creates an in-process PowerShell runspace"
+Assert-Test ($engine -match "Invoke-VaultGuardScan") "Desktop engine invokes the real detection dispatcher"
+Assert-Test ($engine -match "Get-QuarantineVaultItems") "Desktop reads the real quarantine vault"
+Assert-Test ($project -match "VaultGuard\.Detection\.psm1") "Detection modules are embedded into the app"
 
-# --- TEST 6: GitHub Release & Auto-Update Engine ---
-Write-Host "`n[6] Auditing GitHub Releases & Auto-Update Engine..." -ForegroundColor Cyan
-Assert-Test (Test-Path (Join-Path $AppDir ".github\workflows\release.yml")) "GitHub Actions Release Workflow Exists"
-Assert-Test (Test-Path (Join-Path $AppDir "Publish-Release.ps1")) "Local Release Publisher Script Exists"
-$engServiceContent = Get-Content (Join-Path $AppDir "Services\EngineService.cs") -Raw
-Assert-Test ($engServiceContent -match "EngineService") "Engine Service Layer Initialized"
+# Reject UI simulation regressions
+Assert-Test ($scanVm -notmatch "Task\.Delay") "Scan center has no fake scan delay pipeline"
+Assert-Test ($scanVm -notmatch "CleanCount\s*\+=") "Scan center has no fabricated clean counters"
+Assert-Test ($dashboardVm -match "ScanAsync") "Dashboard quick scan calls the live engine"
+Assert-Test ($mainVm -notmatch "SimulateUsbDriveInsertion") "Shell has no simulated USB insertion"
 
-# --- SUMMARY REPORT ---
-Write-Host "`n================================================================================" -ForegroundColor Cyan
-$summaryColor = if ($FailCount -eq 0) { "Green" } else { "Red" }
-$statusColor  = if ($FailCount -eq 0) { "Green" } else { "Yellow" }
-$statusText   = if ($FailCount -eq 0) { "SYSTEM HARDENED & SECURE" } else { "ACTION REQUIRED" }
+# Vault safety regressions
+Assert-Test ($vault -notmatch 'FileSystemAccessRule\("Everyone"\s*,\s*"FullControl"') "Vault does not deny Everyone FullControl"
+Assert-Test ($vault -match "WindowsIdentity.*GetCurrent") "Vault ACL explicitly authorizes the running identity"
+Assert-Test ($vault -notmatch "New-Item\s+-ItemType\s+HardLink") "Baseline recovery does not create hard links"
+Assert-Test ($vault -match "Copy-Item.*Destination.*blob") "Baseline recovery stores independent copies"
+Assert-Test ($vault -match "HMACSHA256") "Baseline manifest uses keyed authentication"
+Assert-Test ($vault -match "ProtectedData") "Baseline signing key is protected with Windows DPAPI"
+Assert-Test ($vault -match "Quarantine integrity verification failed") "Quarantine restore verifies payload integrity"
 
-Write-Host " HARDENING TEST SUMMARY: $PassCount PASSED, $FailCount FAILED" -ForegroundColor $summaryColor
-Write-Host " Status: $statusText" -ForegroundColor $statusColor
-Write-Host " Created by: Klyvex Studios" -ForegroundColor Green
-Write-Host "================================================================================" -ForegroundColor Cyan
+# API host remains loopback-only when used separately
+$api = Read-RepoFile "PaintGuardEngine.ps1"
+Assert-Test ($api -match "IPAddress\]::Loopback") "Optional REST host binds only to loopback"
+Assert-Test ($api -match "Authorization") "Optional REST host enforces authorization"
+
+Write-Host ""
+Write-Host "Result: $PassCount passed, $FailCount failed" -ForegroundColor $(if ($FailCount -eq 0) { "Green" } else { "Red" })
+if ($FailCount -gt 0) { exit 1 }
