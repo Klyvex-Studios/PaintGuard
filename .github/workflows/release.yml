@@ -2,9 +2,6 @@ name: Build & Publish GitHub Release
 
 on:
   push:
-    branches:
-      - main
-      - master
     tags:
       - 'v*.*.*'
   workflow_dispatch:
@@ -18,7 +15,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout Source Code
+      - name: Checkout source
         uses: actions/checkout@v4
 
       - name: Setup .NET 8 SDK
@@ -26,51 +23,41 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Generate High-Res Icon (If Script Present)
-        shell: powershell
+      - name: Restore packages
+        run: dotnet restore .\VaultGuard360.csproj
+
+      - name: Build application
+        run: dotnet build .\VaultGuard360.csproj -c Release --no-restore
+
+      - name: Run PowerShell safety tests
+        shell: pwsh
         run: |
-          if (Test-Path ".\ConvertLogoToIcon.ps1") {
-            powershell -ExecutionPolicy Bypass -File .\ConvertLogoToIcon.ps1
-          } else {
-            Write-Host "ConvertLogoToIcon.ps1 not found. Using prebuilt icon.ico."
+          if (Test-Path ".\Tests\Hardening-Tests.ps1") {
+            .\Tests\Hardening-Tests.ps1
           }
 
-      - name: Compile Custom WPF Installer (VaultGuard360_Setup.exe)
-        shell: powershell
-        run: |
-          if (Test-Path ".\Build-Installer.ps1") {
-            powershell -ExecutionPolicy Bypass -File .\Build-Installer.ps1
-          } else {
-            Write-Host "[1/3] Compiling Core App..."
-            dotnet publish .\VaultGuard360.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o .\bin\Publish\
-            
-            Write-Host "[2/3] Packaging payload.zip..."
-            Remove-Item ".\payload.zip" -ErrorAction SilentlyContinue
-            Compress-Archive -Path ".\bin\Publish\*" -DestinationPath ".\payload.zip" -Force
-            
-            Write-Host "[3/3] Compiling Custom Installer..."
-            dotnet publish .\VaultGuard360.Setup.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o .\bin\SingleFilePublish\
-            Copy-Item ".\bin\SingleFilePublish\VaultGuard360_Setup.exe" ".\VaultGuard360_Setup.exe" -Force
-          }
+      - name: Build custom installer
+        shell: pwsh
+        run: .\Build-Installer.ps1
 
-      - name: Create GitHub Release & Upload Assets
+      - name: Verify release assets
+        shell: pwsh
+        run: |
+          if (-not (Test-Path ".\VaultGuard360_Setup.exe")) { throw "VaultGuard360_Setup.exe was not produced." }
+          if (-not (Test-Path ".\bin\Publish\VaultGuard360.exe")) { throw "VaultGuard360.exe was not produced." }
+          Copy-Item ".\bin\Publish\VaultGuard360.exe" ".\VaultGuard360.exe" -Force
+
+      - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v2.5.0' }}
-          name: VaultGuard 360 Release ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          name: VaultGuard 360 ${{ github.ref_name }}
           body: |
-            ## 🛡️ VaultGuard 360 Antivirus & Vaccine Suite Release ${{ github.ref_name }}
-            *Created by Klyvex Studios*
+            ## VaultGuard 360
+            Klyvex Studios Windows malware defense and recovery suite.
 
-            ### 🚀 Assets Included:
-            - `VaultGuard360_Setup.exe`: Custom WPF Windows Installer (Desktop Shortcuts, Auto-Start, Uninstaller)
-            - `VaultGuard360.exe`: Standalone Native Windows App Host
-
-            ### 🔐 Highlights:
-            - Multi-Family Heuristic Scanner (Paint/Geacata, Shortcut Worms, Expiro PE Infector)
-            - Real-Time Animated Toast Popups & System Tray Monitor
-            - Dual-Compartment Clean-File & Quarantine Vault
-            - USB Watchdog & Immunization Traps
+            This build includes the native WPF application, in-process PowerShell detection engine,
+            baseline recovery vault, quarantine controls, removable-media protection, and installer.
           draft: false
           prerelease: false
           files: |
