@@ -11,20 +11,16 @@ namespace VaultGuard360.Views
             InitializeComponent();
         }
 
-        private void QuickScan_Click(object sender, RoutedEventArgs e)
+        private async void QuickScan_Click(object sender, RoutedEventArgs e)
         {
             if (DataContext is DashboardViewModel vm)
-            {
-                vm.ExecuteQuickScan();
-            }
+                await vm.ExecuteQuickScanAsync();
         }
 
-        private void Remediate_Click(object sender, RoutedEventArgs e)
+        private async void Remediate_Click(object sender, RoutedEventArgs e)
         {
             if (DataContext is DashboardViewModel vm)
-            {
-                vm.ExecuteRemediation();
-            }
+                await vm.ExecuteRemediationAsync();
         }
     }
 }
