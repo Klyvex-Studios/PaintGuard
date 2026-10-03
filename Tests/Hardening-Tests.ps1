@@ -35,6 +35,9 @@ $scanVm = Read-RepoFile "ViewModels\ScanViewModel.cs"
 $dashboardVm = Read-RepoFile "ViewModels\DashboardViewModel.cs"
 $mainVm = Read-RepoFile "ViewModels\MainViewModel.cs"
 $vault = Read-RepoFile "Modules\VaultGuard.Vault.psm1"
+$vaccine = Read-RepoFile "Modules\VaultGuard.Vaccine.psm1"
+$shortcut = Read-RepoFile "Modules\VaultGuard.ShortcutWorm.psm1"
+$expiro = Read-RepoFile "Modules\VaultGuard.Expiro.psm1"
 $project = Read-RepoFile "VaultGuard360.csproj"
 
 # Real engine integration
@@ -48,6 +51,7 @@ Assert-Test ($scanVm -notmatch "Task\.Delay") "Scan center has no fake scan dela
 Assert-Test ($scanVm -notmatch "CleanCount\s*\+=") "Scan center has no fabricated clean counters"
 Assert-Test ($dashboardVm -match "ScanAsync") "Dashboard quick scan calls the live engine"
 Assert-Test ($mainVm -notmatch "SimulateUsbDriveInsertion") "Shell has no simulated USB insertion"
+Assert-Test ($mainVm -match "IsUsbWatcherRunning") "USB live-monitoring state is separate from engine-online state"
 
 # Vault safety regressions
 Assert-Test ($vault -notmatch 'FileSystemAccessRule\("Everyone"\s*,\s*"FullControl"') "Vault does not deny Everyone FullControl"
@@ -57,6 +61,20 @@ Assert-Test ($vault -match "Copy-Item.*Destination.*blob") "Baseline recovery st
 Assert-Test ($vault -match "HMACSHA256") "Baseline manifest uses keyed authentication"
 Assert-Test ($vault -match "ProtectedData") "Baseline signing key is protected with Windows DPAPI"
 Assert-Test ($vault -match "Quarantine integrity verification failed") "Quarantine restore verifies payload integrity"
+
+# Removable-media safety regressions
+Assert-Test ($vaccine -match 'DriveType\s+-eq\s+2') "USB vaccine targets removable drives"
+Assert-Test ($vaccine -notmatch 'DriveType\s+-eq\s+3') "USB vaccine does not target fixed disks"
+Assert-Test ($vaccine -notmatch 'C:\\paint\.exe') "Vaccine no longer creates local fake executable paths"
+Assert-Test ($vaccine -notmatch 'FileSystemAccessRule\("Everyone"') "Vaccine does not install Everyone deny ACLs"
+Assert-Test ($vaccine -match "VaccineMarkerName") "USB vaccine only removes directories it can identify as its own"
+Assert-Test ($vaccine -match "PreviousValue") "AutoRun policy records the value it replaces"
+
+# False-positive/destructive-remediation guardrails
+Assert-Test ($shortcut -match "SuspiciousLnks\s*=\s*\$suspiciousLnkFiles") "Shortcut remediation receives only suspicious shortcut records"
+Assert-Test ($shortcut -match 'Verdict -ne "Infected"') "Shortcut remediation blocks automatic action on review-only verdicts"
+Assert-Test ($expiro -match 'Verdict -ne "Infected"') "Expiro remediation blocks automatic action on review-only verdicts"
+Assert-Test ($expiro -match "knownSection") "Expiro auto-verdict requires known/corroborating PE evidence"
 
 # API host remains loopback-only when used separately
 $api = Read-RepoFile "PaintGuardEngine.ps1"
