@@ -38,6 +38,7 @@ $vault = Read-RepoFile "Modules\VaultGuard.Vault.psm1"
 $vaccine = Read-RepoFile "Modules\VaultGuard.Vaccine.psm1"
 $shortcut = Read-RepoFile "Modules\VaultGuard.ShortcutWorm.psm1"
 $expiro = Read-RepoFile "Modules\VaultGuard.Expiro.psm1"
+$persistence = Read-RepoFile "Modules\VaultGuard.Persistence.psm1"
 $project = Read-RepoFile "VaultGuard360.csproj"
 
 # Real engine integration
@@ -71,10 +72,13 @@ Assert-Test ($vaccine -match "VaccineMarkerName") "USB vaccine only removes dire
 Assert-Test ($vaccine -match "PreviousValue") "AutoRun policy records the value it replaces"
 
 # False-positive/destructive-remediation guardrails
-Assert-Test ($shortcut -match "SuspiciousLnks\s*=\s*\$suspiciousLnkFiles") "Shortcut remediation receives only suspicious shortcut records"
+Assert-Test ($shortcut -match 'SuspiciousLnks\s*=\s*\$suspiciousLnkFiles') "Shortcut remediation receives only suspicious shortcut records"
 Assert-Test ($shortcut -match 'Verdict -ne "Infected"') "Shortcut remediation blocks automatic action on review-only verdicts"
 Assert-Test ($expiro -match 'Verdict -ne "Infected"') "Expiro remediation blocks automatic action on review-only verdicts"
 Assert-Test ($expiro -match "knownSection") "Expiro auto-verdict requires known/corroborating PE evidence"
+Assert-Test ($persistence -match 'Verdict -eq "Infected"') "Persistence repair filters to confirmed findings"
+Assert-Test ($persistence -notmatch "Remove-CimInstance") "WMI persistence is review-only, not auto-deleted"
+Assert-Test ($persistence -match "automatic deletion is disabled") "WMI review-only policy is documented in engine logic"
 
 # API host remains loopback-only when used separately
 $api = Read-RepoFile "PaintGuardEngine.ps1"
