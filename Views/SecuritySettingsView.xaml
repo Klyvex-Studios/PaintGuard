@@ -3,36 +3,27 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="0,0,0,20">
-            <DockPanel Margin="0,0,0,20">
-                <StackPanel>
-                    <TextBlock Text="Security Configuration &amp; Support" Foreground="{StaticResource BrushPrimary}" FontSize="22" FontWeight="Bold" />
-                    <TextBlock Text="Manage defense mechanisms, API bindings, and submit end-user support inquiries." Foreground="{StaticResource BrushTextMuted}" FontSize="12" Margin="0,2,0,0" />
-                </StackPanel>
-            </DockPanel>
+            <StackPanel Margin="0,0,0,20">
+                <TextBlock Text="Settings" Foreground="{StaticResource BrushTextMain}" FontSize="24" FontWeight="SemiBold" />
+                <TextBlock Text="Configure removable-media protection, inspect runtime state and contact support." Foreground="{StaticResource BrushTextMuted}" FontSize="12" Margin="0,3,0,0" />
+            </StackPanel>
 
-            <!-- Row 1: Vaccine Guard & Publisher Info -->
-            <Grid Margin="0,0,0,20">
+            <Grid Margin="0,0,0,18">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="16" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <!-- Vaccine Guard -->
                 <Border Grid.Column="0" Style="{StaticResource StitchCardStyle}">
                     <StackPanel>
-                        <DockPanel Margin="0,0,0,16">
-                            <TextBlock Text="Vaccine Guard" Foreground="{StaticResource BrushTextMain}" FontSize="15" FontWeight="Bold" />
-                            <Border Background="rgba(104, 219, 169, 0.1)" CornerRadius="4" Padding="6,2" HorizontalAlignment="Right">
-                                <TextBlock Text="ENFORCED" Foreground="{StaticResource BrushSecondary}" FontSize="10" FontWeight="Bold" FontFamily="Consolas" />
-                            </Border>
-                        </DockPanel>
+                        <TextBlock Text="Removable media protection" Foreground="{StaticResource BrushTextMain}" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,14" />
 
                         <Border Style="{StaticResource CardInnerStyle}" Margin="0,0,0,10">
                             <DockPanel>
-                                <StackPanel Width="260">
-                                    <TextBlock Text="USB Auto-Vaccine Service" Foreground="{StaticResource BrushTextMain}" FontSize="13" FontWeight="Bold" />
-                                    <TextBlock Text="Injects decoy signatures and autorun.inf dummy traps." Foreground="{StaticResource BrushTextMuted}" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0" />
+                                <StackPanel Width="300">
+                                    <TextBlock Text="USB vaccine" Foreground="{StaticResource BrushTextMain}" FontSize="12" FontWeight="SemiBold" />
+                                    <TextBlock Text="Creates autorun.inf directory traps on removable media." Foreground="{StaticResource BrushTextMuted}" FontSize="10" TextWrapping="Wrap" Margin="0,3,0,0" />
                                 </StackPanel>
                                 <CheckBox IsChecked="{Binding IsUsbVaccineEnabled}" HorizontalAlignment="Right" VerticalAlignment="Center" />
                             </DockPanel>
@@ -40,9 +31,9 @@
 
                         <Border Style="{StaticResource CardInnerStyle}">
                             <DockPanel>
-                                <StackPanel Width="260">
-                                    <TextBlock Text="AutoRun Policy Hardening" Foreground="{StaticResource BrushTextMain}" FontSize="13" FontWeight="Bold" />
-                                    <TextBlock Text="Forces Registry NoDriveTypeAutoRun to 0xFF." Foreground="{StaticResource BrushTextMuted}" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0" />
+                                <StackPanel Width="300">
+                                    <TextBlock Text="AutoRun hardening" Foreground="{StaticResource BrushTextMain}" FontSize="12" FontWeight="SemiBold" />
+                                    <TextBlock Text="Applies NoDriveTypeAutoRun policy through the live engine." Foreground="{StaticResource BrushTextMuted}" FontSize="10" TextWrapping="Wrap" Margin="0,3,0,0" />
                                 </StackPanel>
                                 <CheckBox IsChecked="{Binding IsAutoRunHardened}" HorizontalAlignment="Right" VerticalAlignment="Center" />
                             </DockPanel>
@@ -50,44 +41,38 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Publisher & REST API Details -->
                 <Border Grid.Column="2" Style="{StaticResource StitchCardStyle}">
                     <StackPanel>
-                        <TextBlock Text="App Publisher &amp; API Binding" Foreground="{StaticResource BrushTextMain}" FontSize="15" FontWeight="Bold" Margin="0,0,0,16" />
-
+                        <TextBlock Text="Runtime" Foreground="{StaticResource BrushTextMain}" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,14" />
                         <Border Style="{StaticResource CardInnerStyle}">
                             <StackPanel>
                                 <DockPanel Margin="0,0,0,8">
-                                    <TextBlock Text="Suite Name:" Foreground="{StaticResource BrushTextMuted}" FontSize="12" />
-                                    <TextBlock Text="VaultGuard 360" Foreground="{StaticResource BrushTextMain}" FontWeight="Bold" FontSize="12" HorizontalAlignment="Right" />
+                                    <TextBlock Text="Product" Foreground="{StaticResource BrushTextMuted}" FontSize="11" />
+                                    <TextBlock Text="VaultGuard 360" Foreground="{StaticResource BrushTextMain}" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" />
                                 </DockPanel>
                                 <DockPanel Margin="0,0,0,8">
-                                    <TextBlock Text="Version:" Foreground="{StaticResource BrushTextMuted}" FontSize="12" />
-                                    <TextBlock Text="v1.0.0" Foreground="{StaticResource BrushPrimary}" FontWeight="Bold" FontSize="12" HorizontalAlignment="Right" />
+                                    <TextBlock Text="Publisher" Foreground="{StaticResource BrushTextMuted}" FontSize="11" />
+                                    <TextBlock Text="Klyvex Studios" Foreground="{StaticResource BrushPrimaryContainer}" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" />
                                 </DockPanel>
                                 <DockPanel Margin="0,0,0,8">
-                                    <TextBlock Text="Created By:" Foreground="{StaticResource BrushTextMuted}" FontSize="12" />
-                                    <TextBlock Text="Klyvex Studios" Foreground="{StaticResource BrushSecondary}" FontWeight="Bold" FontSize="12" HorizontalAlignment="Right" />
-                                </DockPanel>
-                                <DockPanel Margin="0,0,0,8">
-                                    <TextBlock Text="Support Email:" Foreground="{StaticResource BrushTextMuted}" FontSize="12" />
-                                    <TextBlock Text="admin@highqsolidacademy.com" Foreground="{StaticResource BrushPrimary}" FontWeight="Bold" FontSize="11" HorizontalAlignment="Right" />
+                                    <TextBlock Text="Engine" Foreground="{StaticResource BrushTextMuted}" FontSize="11" />
+                                    <TextBlock Text="{Binding EngineState}" Foreground="{StaticResource BrushSecondary}" FontWeight="SemiBold" FontSize="11" HorizontalAlignment="Right" />
                                 </DockPanel>
                                 <DockPanel>
-                                    <TextBlock Text="REST Binding:" Foreground="{StaticResource BrushTextMuted}" FontSize="12" />
-                                    <TextBlock Text="127.0.0.1:18443" Foreground="{StaticResource BrushTextMain}" FontFamily="Consolas" FontSize="12" HorizontalAlignment="Right" />
+                                    <TextBlock Text="Mode" Foreground="{StaticResource BrushTextMuted}" FontSize="11" />
+                                    <TextBlock Text="{Binding RuntimeMode}" Foreground="{StaticResource BrushTextMain}" FontFamily="Consolas" FontSize="10" HorizontalAlignment="Right" />
                                 </DockPanel>
                             </StackPanel>
                         </Border>
+                        <TextBlock Text="The desktop app no longer relies on a separately-started localhost REST engine for normal protection operations." Foreground="{StaticResource BrushTextMuted}" FontSize="10" TextWrapping="Wrap" Margin="0,12,0,0" />
                     </StackPanel>
                 </Border>
             </Grid>
 
-            <!-- Row 2: Support & Feedback Contact Form -->
             <Border Style="{StaticResource StitchCardStyle}">
                 <StackPanel>
-                    <TextBlock Text="⚙️ End-User Support &amp; Feedback Channel" Foreground="{StaticResource BrushPrimary}" FontSize="16" FontWeight="Bold" Margin="0,0,0,4" />
-                    <TextBlock Text="Contact High Q Solid Academy support directly at admin@highqsolidacademy.com" Foreground="{StaticResource BrushTextMuted}" FontSize="12" Margin="0,0,0,16" />
+                    <TextBlock Text="Support &amp; feedback" Foreground="{StaticResource BrushTextMain}" FontSize="15" FontWeight="SemiBold" />
+                    <TextBlock Text="Your message is opened in your local mail client. VaultGuard no longer silently posts support content to a third-party form service." Foreground="{StaticResource BrushTextMuted}" FontSize="10" TextWrapping="Wrap" Margin="0,3,0,14" />
 
                     <Grid Margin="0,0,0,12">
                         <Grid.ColumnDefinitions>
@@ -95,27 +80,24 @@
                             <ColumnDefinition Width="12" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-
                         <StackPanel Grid.Column="0">
-                            <TextBlock Text="Your Name:" Foreground="{StaticResource BrushTextMain}" FontSize="12" Margin="0,0,0,4" />
-                            <TextBox Text="{Binding ContactName, UpdateSourceTrigger=PropertyChanged}" Background="{StaticResource BrushSurfaceVariant}" Foreground="{StaticResource BrushTextMain}" BorderBrush="{StaticResource BrushOutline}" Padding="8" />
+                            <TextBlock Text="Name" Foreground="{StaticResource BrushTextMuted}" FontSize="10" Margin="0,0,0,4" />
+                            <TextBox Text="{Binding ContactName, UpdateSourceTrigger=PropertyChanged}" />
                         </StackPanel>
-
                         <StackPanel Grid.Column="2">
-                            <TextBlock Text="Your Email Address:" Foreground="{StaticResource BrushTextMain}" FontSize="12" Margin="0,0,0,4" />
-                            <TextBox Text="{Binding ContactEmail, UpdateSourceTrigger=PropertyChanged}" Background="{StaticResource BrushSurfaceVariant}" Foreground="{StaticResource BrushTextMain}" BorderBrush="{StaticResource BrushOutline}" Padding="8" />
+                            <TextBlock Text="Email" Foreground="{StaticResource BrushTextMuted}" FontSize="10" Margin="0,0,0,4" />
+                            <TextBox Text="{Binding ContactEmail, UpdateSourceTrigger=PropertyChanged}" />
                         </StackPanel>
                     </Grid>
 
-                    <TextBlock Text="Subject:" Foreground="{StaticResource BrushTextMain}" FontSize="12" Margin="0,0,0,4" />
-                    <TextBox Text="{Binding ContactSubject, UpdateSourceTrigger=PropertyChanged}" Background="{StaticResource BrushSurfaceVariant}" Foreground="{StaticResource BrushTextMain}" BorderBrush="{StaticResource BrushOutline}" Padding="8" Margin="0,0,0,12" />
-
-                    <TextBlock Text="Describe your technical issue or feature request:" Foreground="{StaticResource BrushTextMain}" FontSize="12" Margin="0,0,0,4" />
-                    <TextBox Text="{Binding ContactMessage, UpdateSourceTrigger=PropertyChanged}" Background="{StaticResource BrushSurfaceVariant}" Foreground="{StaticResource BrushTextMain}" BorderBrush="{StaticResource BrushOutline}" Padding="8" Height="90" AcceptsReturn="True" TextWrapping="Wrap" Margin="0,0,0,12" />
+                    <TextBlock Text="Subject" Foreground="{StaticResource BrushTextMuted}" FontSize="10" Margin="0,0,0,4" />
+                    <TextBox Text="{Binding ContactSubject, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12" />
+                    <TextBlock Text="Message" Foreground="{StaticResource BrushTextMuted}" FontSize="10" Margin="0,0,0,4" />
+                    <TextBox Text="{Binding ContactMessage, UpdateSourceTrigger=PropertyChanged}" Height="100" AcceptsReturn="True" TextWrapping="Wrap" Margin="0,0,0,12" />
 
                     <DockPanel>
-                        <Button Content="✉️  SEND SUPPORT MESSAGE" Style="{StaticResource PrimaryButtonStyle}" Click="SendSupport_Click" HorizontalAlignment="Left" />
-                        <TextBlock Text="{Binding SupportStatus}" Foreground="{StaticResource BrushSecondary}" FontSize="11" VerticalAlignment="Center" Margin="16,0,0,0" TextWrapping="Wrap" />
+                        <Button Content="Open support message" Style="{StaticResource PrimaryButtonStyle}" Click="SendSupport_Click" HorizontalAlignment="Left" />
+                        <TextBlock Text="{Binding SupportStatus}" Foreground="{StaticResource BrushTextMuted}" FontSize="10" VerticalAlignment="Center" Margin="14,0,0,0" TextWrapping="Wrap" />
                     </DockPanel>
                 </StackPanel>
             </Border>
