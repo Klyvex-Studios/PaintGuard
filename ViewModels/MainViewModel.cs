@@ -13,7 +13,7 @@ namespace VaultGuard360.ViewModels
         private bool _isUsbFlyoutOpen;
         private bool _isShieldFlyoutOpen;
         private bool _isHeuristicFlyoutOpen;
-        private bool _isRealTimeProtected = EngineService.Instance.IsEngineInitialized;
+        private bool _isRealTimeProtected = EngineService.Instance.IsUsbWatcherRunning;
 
         public DashboardViewModel DashboardVM { get; } = new();
         public ScanViewModel ScanVM { get; } = new();
@@ -33,10 +33,6 @@ namespace VaultGuard360.ViewModels
         public MainViewModel()
         {
             _currentView = DashboardVM;
-            EngineService.Instance.OnEngineStateChanged += (online, _) =>
-            {
-                App.Current?.Dispatcher.Invoke(() => IsRealTimeProtected = online);
-            };
         }
 
         public void Navigate(string tabName)
@@ -73,7 +69,10 @@ namespace VaultGuard360.ViewModels
                 if (ok)
                 {
                     IsRealTimeProtected = target;
-                    NotificationService.Instance.AddNotification("Live monitoring", target ? "USB arrival monitoring enabled." : "USB arrival monitoring paused.", !target);
+                    NotificationService.Instance.AddNotification(
+                        "USB live monitoring",
+                        target ? "USB arrival monitoring enabled." : "USB arrival monitoring paused.",
+                        false);
                 }
             }
             catch (System.Exception ex)
