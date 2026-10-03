@@ -1,0 +1,46 @@
+name: VaultGuard CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore .\VaultGuard360.csproj
+
+      - name: Build
+        run: dotnet build .\VaultGuard360.csproj -c Release --no-restore
+
+      - name: Parse core PowerShell modules
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem .\Modules\*.psm1
+          foreach ($file in $files) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error "$($file.Name): $($_.Message) at line $($_.Extent.StartLineNumber)" }
+              throw "PowerShell parse errors found in $($file.Name)"
+            }
+          }
+
+      - name: Run hardening checks
+        shell: pwsh
+        run: .\Tests\Hardening-Tests.ps1
