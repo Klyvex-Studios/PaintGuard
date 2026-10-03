@@ -51,7 +51,7 @@
                             </DockPanel>
                         </Border>
 
-                        <Button Content="Start scan" Style="{StaticResource PrimaryButtonStyle}" Click="StartScan_Click" HorizontalAlignment="Stretch" IsEnabled="{Binding IsScanning, Converter={x:Static BooleanBoxes.FalseBox}}" />
+                        <Button Content="Start scan" Style="{StaticResource PrimaryButtonStyle}" Click="StartScan_Click" HorizontalAlignment="Stretch" />
                     </StackPanel>
                 </Border>
 
