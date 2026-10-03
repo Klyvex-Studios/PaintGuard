@@ -56,11 +56,12 @@ namespace VaultGuard360.Services
         private string _runtimeDirectory = string.Empty;
 
         public bool IsEngineInitialized { get; private set; }
+        public bool IsUsbWatcherRunning { get; private set; }
         public string EngineState { get; private set; } = "Offline";
         public string LastError { get; private set; } = string.Empty;
 
-        // Kept for backwards-compatible diagnostics. The desktop app now talks to the
-        // engine in-process instead of trusting a separate localhost REST process.
+        // Diagnostic compatibility values. The desktop app now talks to the engine
+        // in-process rather than trusting a separate localhost REST process.
         public string BearerToken { get; } = Guid.NewGuid().ToString("N");
         public int ApiPort { get; } = 18443;
 
@@ -156,8 +157,7 @@ namespace VaultGuard360.Services
             return await ExecuteLockedAsync(() =>
             {
                 using PowerShell ps = CreatePowerShell();
-                ps.AddCommand("Invoke-VaultGuardScan")
-                  .AddParameter("Paths", safePaths);
+                ps.AddCommand("Invoke-VaultGuardScan").AddParameter("Paths", safePaths);
                 if (dryRun) ps.AddParameter("DryRun");
 
                 Log($"Scanning {string.Join(", ", safePaths)} using live VaultGuard detectors...", false);
@@ -169,8 +169,8 @@ namespace VaultGuard360.Services
                 int infected = ToInt(GetValue(root, "ThreatsFound"));
                 var review = AsEnumerable(GetValue(root, "ReviewQueue")).ToList();
                 var threats = AsEnumerable(GetValue(root, "Threats")).ToList();
-
                 var summaries = threats.Select(DescribeThreat).Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
+
                 foreach (string summary in summaries) Log($"THREAT: {summary}", true);
                 foreach (object item in review)
                 {
@@ -334,6 +334,21 @@ if (Test-Path $manifest) {
             });
         }
 
+        public async Task<bool> SetUsbWatcherAsync(bool enabled)
+        {
+            EnsureReady();
+            return await ExecuteLockedAsync(() =>
+            {
+                using PowerShell ps = CreatePowerShell();
+                ps.AddCommand(enabled ? "Start-VaultGuardUsbWatcher" : "Stop-VaultGuardUsbWatcher");
+                var output = ps.Invoke();
+                ThrowIfPowerShellFailed(ps, enabled ? "Starting USB watcher" : "Stopping USB watcher");
+                bool success = ToBool(GetValue(output.LastOrDefault(), "Success"));
+                if (success) IsUsbWatcherRunning = enabled;
+                return success;
+            });
+        }
+
         private async Task<bool> InvokeBooleanCommandAsync(string command, string parameterName, string value)
         {
             EnsureReady();
@@ -357,14 +372,8 @@ if (Test-Path $manifest) {
         private async Task<T> ExecuteLockedAsync<T>(Func<T> action)
         {
             await _engineLock.WaitAsync();
-            try
-            {
-                return await Task.Run(action);
-            }
-            finally
-            {
-                _engineLock.Release();
-            }
+            try { return await Task.Run(action); }
+            finally { _engineLock.Release(); }
         }
 
         private void ExtractEmbeddedResourceBySuffix(string suffix, string destination)
@@ -386,8 +395,7 @@ if (Test-Path $manifest) {
             if (item == null) return null;
             if (item is PSObject psObject)
             {
-                if (psObject.BaseObject is IDictionary dictionary && dictionary.Contains(name))
-                    return dictionary[name];
+                if (psObject.BaseObject is IDictionary dictionary && dictionary.Contains(name)) return dictionary[name];
                 return psObject.Properties[name]?.Value;
             }
             if (item is IDictionary dict && dict.Contains(name)) return dict[name];
@@ -400,8 +408,7 @@ if (Test-Path $manifest) {
             if (value is string) { yield return value; yield break; }
             if (value is IEnumerable enumerable)
             {
-                foreach (object? item in enumerable)
-                    if (item != null) yield return item;
+                foreach (object? item in enumerable) if (item != null) yield return item;
                 yield break;
             }
             yield return value;
@@ -436,9 +443,7 @@ if (Test-Path $manifest) {
         }
 
         public void Log(string message, bool isError = false)
-        {
-            OnLogReceived?.Invoke($"[{DateTime.Now:HH:mm:ss}] {message}", isError);
-        }
+            => OnLogReceived?.Invoke($"[{DateTime.Now:HH:mm:ss}] {message}", isError);
 
         public void Dispose()
         {
