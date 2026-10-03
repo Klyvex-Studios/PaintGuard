@@ -15,23 +15,26 @@ namespace VaultGuard360.Views
 
         private async void CreateSnapshot_Click(object sender, RoutedEventArgs e)
         {
-            if (VM != null)
-            {
-                await VM.CreateSystemBaselineSnapshotAsync();
-            }
+            if (VM != null) await VM.CreateSystemBaselineSnapshotAsync();
         }
 
         private async void RunExpiroRemediation_Click(object sender, RoutedEventArgs e)
         {
-            if (VM != null)
-            {
-                await VM.RunExpiroRemediationAsync();
-            }
+            if (VM != null) await VM.RunRemediationAsync();
         }
 
-        private void SyncVault_Click(object sender, RoutedEventArgs e)
+        private void SyncVault_Click(object sender, RoutedEventArgs e) => VM?.SyncVaults();
+
+        private async void RestoreSelected_Click(object sender, RoutedEventArgs e)
         {
-            VM?.SyncVaults();
+            if (VM != null && QuarantineList.SelectedItem is VaultItem item)
+                await VM.RestoreQuarantinedItemAsync(item);
+        }
+
+        private async void DeleteSelected_Click(object sender, RoutedEventArgs e)
+        {
+            if (VM != null && QuarantineList.SelectedItem is VaultItem item)
+                await VM.DeleteQuarantinedItemAsync(item);
         }
     }
 }
