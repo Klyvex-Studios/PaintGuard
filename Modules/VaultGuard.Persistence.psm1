@@ -1,16 +1,51 @@
 # ==============================================================================
 # Module: VaultGuard.Persistence.psm1
-# Purpose: Persistence Audit & Remediation (Registry, Tasks, WMI, Defender, Startup)
+# Purpose: Conservative persistence audit and confirmed-family remediation
 # ==============================================================================
+
+Import-Module (Join-Path $PSScriptRoot "VaultGuard.Vault.psm1") -ErrorAction SilentlyContinue
+
+function Test-VaultGuardKnownPaintPath {
+    param([string]$Value)
+    if ([string]::IsNullOrWhiteSpace($Value)) { return $false }
+
+    $knownPaths = @(
+        "C:\paint.exe",
+        (Join-Path $env:APPDATA "paint.exe")
+    )
+    foreach ($path in $knownPaths) {
+        if ($Value.IndexOf($path, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) { return $true }
+    }
+    return $false
+}
+
+function New-VaultGuardPersistenceFinding {
+    param(
+        [string]$Location,
+        [string]$Name,
+        [string]$Value,
+        [string]$Type,
+        [string]$Verdict,
+        [string]$Reason
+    )
+
+    [PSCustomObject]@{
+        Location = $Location
+        Name     = $Name
+        Value    = $Value
+        Type     = $Type
+        Verdict  = $Verdict
+        Severity = if ($Verdict -eq "Infected") { "HIGH" } else { "REVIEW" }
+        Reason   = $Reason
+    }
+}
 
 function Get-VaultGuardPersistenceAudit {
     [CmdletBinding()]
     param()
 
-    $Findings = @()
-
-    # 1. Registry Run & RunOnce (HKCU & HKLM, 32-bit & 64-bit)
-    $RegPaths = @(
+    $findings = @()
+    $regPaths = @(
         "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run",
         "HKCU:\Software\Microsoft\Windows\CurrentVersion\RunOnce",
         "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run",
@@ -19,131 +54,128 @@ function Get-VaultGuardPersistenceAudit {
         "HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\RunOnce"
     )
 
-    foreach ($RegPath in $RegPaths) {
-        if (Test-Path $RegPath) {
-            $Props = Get-ItemProperty -Path $RegPath -ErrorAction SilentlyContinue
-            foreach ($PropName in $Props.PSObject.Properties.Name) {
-                if ($PropName -match "^PS") { continue }
-                $Val = $Props.$PropName
-                if ($Val -match "paint\.exe" -or $Val -match "paint\.lnk" -or $Val -match "wscript.*\.vbs" -or $Val -match "cscript.*\.vbs" -or $Val -match "powershell.*\.vbs") {
-                    $Findings += [PSCustomObject]@{
-                        Location = $RegPath
-                        Name     = $PropName
-                        Value    = $Val
-                        Type     = "Registry Run Hook"
-                        Severity = "CRITICAL"
-                    }
+    foreach ($regPath in $regPaths) {
+        if (-not (Test-Path $regPath)) { continue }
+        try {
+            $props = Get-ItemProperty -Path $regPath -ErrorAction Stop
+            foreach ($property in $props.PSObject.Properties) {
+                if ($property.Name -match '^PS') { continue }
+                $value = [string]$property.Value
+
+                if (Test-VaultGuardKnownPaintPath -Value $value) {
+                    $findings += New-VaultGuardPersistenceFinding -Location $regPath -Name $property.Name -Value $value -Type "Registry Run Hook" -Verdict "Infected" -Reason "Run entry references a known Paint/Geacata persistence path"
+                } elseif ($value -match '(?i)(wscript|cscript|powershell|pwsh)\.exe.+\.(vbs|vbe|js|jse|wsf|ps1)') {
+                    $findings += New-VaultGuardPersistenceFinding -Location $regPath -Name $property.Name -Value $value -Type "Registry Run Hook" -Verdict "Suspicious" -Reason "Script-interpreter persistence requires manual review"
                 }
             }
-        }
+        } catch {}
     }
 
-    # 2. Startup Folder Shortcuts (.lnk)
-    $StartupPaths = @(
+    $startupPaths = @(
         "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup",
         "$env:PROGRAMDATA\Microsoft\Windows\Start Menu\Programs\StartUp"
     )
 
-    foreach ($StartupPath in $StartupPaths) {
-        if (Test-Path $StartupPath) {
-            $Shortcuts = Get-ChildItem -LiteralPath $StartupPath -Filter "*.lnk" -ErrorAction SilentlyContinue
-            foreach ($Lnk in $Shortcuts) {
-                if ($Lnk.Name -match "paint\.lnk" -or $Lnk.Name -match "v.*\.lnk") {
-                    $Findings += [PSCustomObject]@{
-                        Location = $StartupPath
-                        Name     = $Lnk.Name
-                        Value    = $Lnk.FullName
-                        Type     = "Startup Shortcut"
-                        Severity = "HIGH"
-                    }
+    foreach ($startupPath in $startupPaths) {
+        if (-not (Test-Path -LiteralPath $startupPath)) { continue }
+        foreach ($lnk in Get-ChildItem -LiteralPath $startupPath -Filter "*.lnk" -File -ErrorAction SilentlyContinue) {
+            try {
+                $shell = New-Object -ComObject WScript.Shell
+                $shortcut = $shell.CreateShortcut($lnk.FullName)
+                $target = [string]$shortcut.TargetPath
+                $args = [string]$shortcut.Arguments
+
+                if (Test-VaultGuardKnownPaintPath -Value $target) {
+                    $findings += New-VaultGuardPersistenceFinding -Location $startupPath -Name $lnk.Name -Value $lnk.FullName -Type "Startup Shortcut" -Verdict "Infected" -Reason "Startup shortcut points to a known Paint/Geacata persistence path"
+                } elseif ($target -match '(?i)(wscript|cscript|powershell|pwsh)\.exe$' -and $args -match '(?i)\.(vbs|vbe|js|jse|wsf|ps1)') {
+                    $findings += New-VaultGuardPersistenceFinding -Location $startupPath -Name $lnk.Name -Value $lnk.FullName -Type "Startup Shortcut" -Verdict "Suspicious" -Reason "Script-based startup shortcut requires manual review"
                 }
-            }
+            } catch {}
         }
     }
 
-    # 3. Scheduled Tasks
     try {
-        $Tasks = Get-ScheduledTask -ErrorAction SilentlyContinue
-        foreach ($Task in $Tasks) {
-            foreach ($Action in $Task.Actions) {
-                if ($Action.Execute -match "paint\.exe" -or $Action.Arguments -match "\.vbs") {
-                    $Findings += [PSCustomObject]@{
-                        Location = "TaskScheduler:\$($Task.TaskPath)"
-                        Name     = $Task.TaskName
-                        Value    = "$($Action.Execute) $($Action.Arguments)"
-                        Type     = "Scheduled Task"
-                        Severity = "HIGH"
-                    }
+        foreach ($task in Get-ScheduledTask -ErrorAction Stop) {
+            foreach ($action in @($task.Actions)) {
+                $command = "$($action.Execute) $($action.Arguments)"
+                if (Test-VaultGuardKnownPaintPath -Value $command) {
+                    $findings += New-VaultGuardPersistenceFinding -Location $task.TaskPath -Name $task.TaskName -Value $command -Type "Scheduled Task" -Verdict "Infected" -Reason "Scheduled task references a known Paint/Geacata persistence path"
+                } elseif ($command -match '(?i)(wscript|cscript|powershell|pwsh).+\.(vbs|vbe|js|jse|wsf|ps1)') {
+                    $findings += New-VaultGuardPersistenceFinding -Location $task.TaskPath -Name $task.TaskName -Value $command -Type "Scheduled Task" -Verdict "Suspicious" -Reason "Script-based scheduled task requires manual review"
                 }
             }
         }
     } catch {}
 
-    # 4. WMI Event Subscriptions
+    # WMI subscriptions are high-impact to delete incorrectly. Surface them for review,
+    # but do not automatically remove them in this release.
     try {
-        $WmiConsumers = Get-CimInstance -Namespace "root\subscription" -ClassName "__EventConsumer" -ErrorAction SilentlyContinue
-        foreach ($Consumer in $WmiConsumers) {
-            if ($Consumer.CommandLineTemplate -match "paint\.exe" -or $Consumer.CommandLineTemplate -match "\.vbs") {
-                $Findings += [PSCustomObject]@{
-                    Location = "WMI Subscription"
-                    Name     = $Consumer.Name
-                    Value    = $Consumer.CommandLineTemplate
-                    Type     = "WMI Hook"
-                    Severity = "CRITICAL"
-                }
+        foreach ($consumer in Get-CimInstance -Namespace "root\subscription" -ClassName "CommandLineEventConsumer" -ErrorAction Stop) {
+            $command = [string]$consumer.CommandLineTemplate
+            if ((Test-VaultGuardKnownPaintPath -Value $command) -or $command -match '(?i)(wscript|cscript|powershell|pwsh).+\.(vbs|vbe|js|jse|wsf|ps1)') {
+                $findings += New-VaultGuardPersistenceFinding -Location "WMI Subscription" -Name $consumer.Name -Value $command -Type "WMI Hook" -Verdict "Suspicious" -Reason "Persistent WMI command requires manual review; automatic deletion is disabled"
             }
         }
     } catch {}
 
+    $confirmed = @($findings | Where-Object { $_.Verdict -eq "Infected" })
+    $review = @($findings | Where-Object { $_.Verdict -eq "Suspicious" })
     return @{
-        ThreatsFound = $Findings.Count
-        Findings     = $Findings
+        ThreatsFound = $confirmed.Count
+        ReviewCount  = $review.Count
+        Findings     = $findings
     }
 }
 
 function Repair-VaultGuardPersistence {
     [CmdletBinding(SupportsShouldProcess=$true)]
-    param(
-        [switch]$DryRun
-    )
+    param([switch]$DryRun)
 
-    $Audit = Get-VaultGuardPersistenceAudit
-    $Actions = @()
+    $audit = Get-VaultGuardPersistenceAudit
+    $confirmed = @($audit.Findings | Where-Object { $_.Verdict -eq "Infected" })
+    $actions = @()
+    $failures = @()
+    $remediated = 0
 
     if ($DryRun -or $WhatIfPreference) {
         return @{
             Success         = $true
-            RemediatedCount = $Audit.ThreatsFound
-            Message         = "DryRun: Would repair $($Audit.ThreatsFound) persistence hooks"
-            Actions         = $Audit.Findings | ForEach-Object { "Would remove $($_.Type): $($_.Name) at $($_.Location)" }
+            RemediatedCount = $confirmed.Count
+            ReviewCount     = $audit.ReviewCount
+            Message         = "DryRun: Would repair $($confirmed.Count) confirmed persistence hook(s); $($audit.ReviewCount) item(s) remain review-only."
+            Actions         = $confirmed | ForEach-Object { "Would remove confirmed $($_.Type): $($_.Name) at $($_.Location)" }
+            Failures        = @()
         }
     }
 
-    foreach ($Finding in $Audit.Findings) {
+    foreach ($finding in $confirmed) {
         try {
-            if ($Finding.Type -eq "Registry Run Hook") {
-                Remove-ItemProperty -Path $Finding.Location -Name $Finding.Name -Force -ErrorAction Stop
-                $Actions += "Removed Registry Run hook: $($Finding.Name) from $($Finding.Location)"
-            } elseif ($Finding.Type -eq "Startup Shortcut") {
-                Remove-Item -Path $Finding.Value -Force -ErrorAction Stop
-                $Actions += "Deleted startup shortcut: $($Finding.Value)"
-            } elseif ($Finding.Type -eq "Scheduled Task") {
-                Unregister-ScheduledTask -TaskName $Finding.Name -Confirm:$false -ErrorAction Stop
-                $Actions += "Unregistered malicious scheduled task: $($Finding.Name)"
-            } elseif ($Finding.Type -eq "WMI Hook") {
-                Get-CimInstance -Namespace "root\subscription" -ClassName "__EventConsumer" | Where-Object { $_.Name -eq $Finding.Name } | Remove-CimInstance -ErrorAction SilentlyContinue
-                Get-CimInstance -Namespace "root\subscription" -ClassName "__EventFilter" | Where-Object { $_.Name -eq $Finding.Name } | Remove-CimInstance -ErrorAction SilentlyContinue
-                $Actions += "Purged malicious WMI Event Consumer & Filter: $($Finding.Name)"
+            if ($finding.Type -eq "Registry Run Hook") {
+                Remove-ItemProperty -Path $finding.Location -Name $finding.Name -Force -ErrorAction Stop
+                $actions += "Removed confirmed Registry Run hook: $($finding.Name)"
+                $remediated++
+            } elseif ($finding.Type -eq "Startup Shortcut") {
+                $q = Protect-FileToQuarantine -FilePath $finding.Value -Reason "Confirmed malicious startup shortcut"
+                if (-not $q.Success) { throw $q.Message }
+                $actions += "Quarantined confirmed malicious startup shortcut: $($finding.Name)"
+                $remediated++
+            } elseif ($finding.Type -eq "Scheduled Task") {
+                Unregister-ScheduledTask -TaskName $finding.Name -TaskPath $finding.Location -Confirm:$false -ErrorAction Stop
+                $actions += "Removed confirmed malicious scheduled task: $($finding.Location)$($finding.Name)"
+                $remediated++
             }
         } catch {
-            $Actions += "Failed to repair $($Finding.Name): $($_.Exception.Message)"
+            $failures += "Failed to repair $($finding.Type) '$($finding.Name)': $($_.Exception.Message)"
         }
     }
 
     return @{
-        Success         = $true
-        RemediatedCount = $Actions.Count
-        Actions         = $Actions
+        Success         = ($failures.Count -eq 0)
+        RemediatedCount = $remediated
+        ReviewCount     = $audit.ReviewCount
+        Actions         = $actions
+        Failures        = $failures
+        Message         = if ($failures.Count -eq 0) { "Persistence remediation completed." } else { "Persistence remediation completed with failures." }
     }
 }
 
