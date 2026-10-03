@@ -1,15 +1,171 @@
 # ==============================================================================
 # Module: VaultGuard.Vaccine.psm1
-# Purpose: Immunization Traps, AutoRun Policy Hardening, USB Auto-Vaccine Service Watcher
+# Purpose: Conservative removable-media vaccination, AutoRun policy and USB watcher
 # ==============================================================================
 
-$script:TargetVaccinePaths = @(
-    "C:\paint.exe",
-    "$env:APPDATA\paint.exe",
-    "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\paint.lnk",
-    "$env:PROGRAMDATA\Microsoft\Windows\Start Menu\Programs\StartUp\paint.lnk"
-)
+$script:PolicyStateDir = Join-Path $env:LOCALAPPDATA "Klyvex Studios\VaultGuard 360"
+$script:PolicyStateFile = Join-Path $script:PolicyStateDir "autorun-policy-state.json"
+$script:VaccineMarkerName = ".vaultguard-vaccine"
 
+function Get-VaultGuardRemovableVolumes {
+    @(Get-CimInstance Win32_LogicalDisk -ErrorAction SilentlyContinue | Where-Object { $_.DriveType -eq 2 -and $_.DeviceID })
+}
+
+function Set-VaultGuardAutoRunPolicy {
+    [CmdletBinding(SupportsShouldProcess=$true)]
+    param(
+        [Parameter(Mandatory=$true)][bool]$Enabled,
+        [switch]$DryRun
+    )
+
+    $regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
+    if ($DryRun -or $WhatIfPreference) {
+        return @{ Success = $true; Enabled = $Enabled; Message = "DryRun: Would set per-user AutoRun hardening to $Enabled." }
+    }
+
+    try {
+        if ($Enabled) {
+            if (-not (Test-Path -LiteralPath $script:PolicyStateFile)) {
+                New-Item -ItemType Directory -Path $script:PolicyStateDir -Force | Out-Null
+                $previousExists = $false
+                $previousValue = $null
+                try {
+                    $property = Get-ItemProperty -Path $regPath -Name "NoDriveTypeAutoRun" -ErrorAction Stop
+                    $previousExists = $true
+                    $previousValue = [int]$property.NoDriveTypeAutoRun
+                } catch {}
+
+                [PSCustomObject]@{
+                    PreviousExists = $previousExists
+                    PreviousValue  = $previousValue
+                    CapturedAt     = (Get-Date).ToString("o")
+                } | ConvertTo-Json | Out-File -LiteralPath $script:PolicyStateFile -Encoding utf8 -Force
+            }
+
+            if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
+            Set-ItemProperty -Path $regPath -Name "NoDriveTypeAutoRun" -Value 0xFF -Type DWord -Force
+            return @{ Success = $true; Enabled = $true; Message = "Per-user AutoRun disabled for all drive types." }
+        }
+
+        if (Test-Path -LiteralPath $script:PolicyStateFile) {
+            $state = Get-Content -LiteralPath $script:PolicyStateFile -Raw | ConvertFrom-Json
+            if ($state.PreviousExists) {
+                if (-not (Test-Path $regPath)) { New-Item -Path $regPath -Force | Out-Null }
+                Set-ItemProperty -Path $regPath -Name "NoDriveTypeAutoRun" -Value ([int]$state.PreviousValue) -Type DWord -Force
+            } else {
+                Remove-ItemProperty -Path $regPath -Name "NoDriveTypeAutoRun" -ErrorAction SilentlyContinue
+            }
+            Remove-Item -LiteralPath $script:PolicyStateFile -Force -ErrorAction SilentlyContinue
+        } else {
+            # No VaultGuard state means we cannot safely assume ownership of an existing policy.
+            $current = $null
+            try { $current = (Get-ItemProperty -Path $regPath -Name "NoDriveTypeAutoRun" -ErrorAction Stop).NoDriveTypeAutoRun } catch {}
+            if ($current -eq 255) {
+                return @{ Success = $false; Enabled = $false; Message = "AutoRun policy is hardened but VaultGuard did not record the previous value; leaving it unchanged." }
+            }
+        }
+
+        return @{ Success = $true; Enabled = $false; Message = "VaultGuard AutoRun policy change reverted." }
+    } catch {
+        return @{ Success = $false; Enabled = $Enabled; Message = "AutoRun policy update failed: $($_.Exception.Message)" }
+    }
+}
+
+function Set-VaultGuardUsbVaccine {
+    [CmdletBinding(SupportsShouldProcess=$true)]
+    param(
+        [string]$DrivePath = "",
+        [switch]$DryRun
+    )
+
+    $results = @()
+    $volumes = @()
+    if ($DrivePath) {
+        $deviceId = $DrivePath.TrimEnd('\')
+        $volumes = @(Get-CimInstance Win32_LogicalDisk -ErrorAction SilentlyContinue | Where-Object { $_.DriveType -eq 2 -and $_.DeviceID -eq $deviceId })
+    } else {
+        $volumes = Get-VaultGuardRemovableVolumes
+    }
+
+    foreach ($volume in $volumes) {
+        $root = "$($volume.DeviceID)\"
+        $autorunDir = Join-Path $root "autorun.inf"
+        $marker = Join-Path $autorunDir $script:VaccineMarkerName
+
+        if ($DryRun -or $WhatIfPreference) {
+            $results += [PSCustomObject]@{ Drive = $volume.DeviceID; Path = $autorunDir; Success = $true; Status = "DryRun" }
+            continue
+        }
+
+        try {
+            if (Test-Path -LiteralPath $autorunDir) {
+                $existing = Get-Item -LiteralPath $autorunDir -Force
+                if (-not $existing.PSIsContainer) {
+                    $results += [PSCustomObject]@{ Drive = $volume.DeviceID; Path = $autorunDir; Success = $false; Status = "Existing autorun.inf file; vaccine did not overwrite it" }
+                    continue
+                }
+                if (Test-Path -LiteralPath $marker) {
+                    $results += [PSCustomObject]@{ Drive = $volume.DeviceID; Path = $autorunDir; Success = $true; Status = "Already vaccinated" }
+                    continue
+                }
+
+                $results += [PSCustomObject]@{ Drive = $volume.DeviceID; Path = $autorunDir; Success = $false; Status = "Existing autorun.inf directory not owned by VaultGuard" }
+                continue
+            }
+
+            New-Item -ItemType Directory -Path $autorunDir -Force -ErrorAction Stop | Out-Null
+            "VaultGuard 360 removable-media vaccine marker. Do not execute." | Out-File -LiteralPath $marker -Encoding ascii -Force
+            $item = Get-Item -LiteralPath $autorunDir -Force
+            $item.Attributes = [System.IO.FileAttributes]::Directory -bor [System.IO.FileAttributes]::ReadOnly -bor [System.IO.FileAttributes]::Hidden -bor [System.IO.FileAttributes]::System
+
+            $results += [PSCustomObject]@{ Drive = $volume.DeviceID; Path = $autorunDir; Success = $true; Status = "Vaccinated" }
+        } catch {
+            $results += [PSCustomObject]@{ Drive = $volume.DeviceID; Path = $autorunDir; Success = $false; Status = $_.Exception.Message }
+        }
+    }
+
+    return ,$results
+}
+
+function Remove-VaultGuardUsbVaccine {
+    [CmdletBinding(SupportsShouldProcess=$true)]
+    param(
+        [string]$DrivePath = "",
+        [switch]$DryRun
+    )
+
+    $results = @()
+    $volumes = if ($DrivePath) {
+        $deviceId = $DrivePath.TrimEnd('\')
+        @(Get-CimInstance Win32_LogicalDisk -ErrorAction SilentlyContinue | Where-Object { $_.DriveType -eq 2 -and $_.DeviceID -eq $deviceId })
+    } else {
+        Get-VaultGuardRemovableVolumes
+    }
+
+    foreach ($volume in @($volumes)) {
+        $autorunDir = "$($volume.DeviceID)\autorun.inf"
+        $marker = Join-Path $autorunDir $script:VaccineMarkerName
+        if (-not (Test-Path -LiteralPath $marker)) { continue }
+
+        if ($DryRun -or $WhatIfPreference) {
+            $results += [PSCustomObject]@{ Drive = $volume.DeviceID; Success = $true; Status = "DryRun" }
+            continue
+        }
+
+        try {
+            $item = Get-Item -LiteralPath $autorunDir -Force
+            $item.Attributes = [System.IO.FileAttributes]::Directory
+            Remove-Item -LiteralPath $autorunDir -Recurse -Force -ErrorAction Stop
+            $results += [PSCustomObject]@{ Drive = $volume.DeviceID; Success = $true; Status = "Removed" }
+        } catch {
+            $results += [PSCustomObject]@{ Drive = $volume.DeviceID; Success = $false; Status = $_.Exception.Message }
+        }
+    }
+
+    return ,$results
+}
+
+# Compatibility wrapper used by existing remediation/API code.
 function Set-VaultGuardVaccine {
     [CmdletBinding(SupportsShouldProcess=$true)]
     param(
@@ -18,214 +174,53 @@ function Set-VaultGuardVaccine {
         [switch]$DryRun
     )
 
-    $Results = @()
-
-    # 1. Administer Immutable Directory Traps on Protected Paths
-    foreach ($Path in $script:TargetVaccinePaths) {
-        if ($DryRun -or $WhatIfPreference) {
-            $Results += [PSCustomObject]@{ Path = $Path; Status = "DryRun: Would create vaccine trap" }
-            continue
-        }
-
-        try {
-            if (Test-Path $Path) {
-                $Item = Get-Item -LiteralPath $Path -Force
-                if (-not $Item.PSIsContainer) { Remove-Item -Path $Path -Force }
-            }
-
-            if (-not (Test-Path $Path)) {
-                New-Item -ItemType Directory -Path $Path -Force | Out-Null
-            }
-
-            # Apply Deny Write & Deny Delete ACLs if NTFS
-            $Drive = Split-Path -Path $Path -Qualifier
-            $Format = (Get-Volume -DriveLetter ($Drive -replace ':', '') -ErrorAction SilentlyContinue).FileSystemType
-
-            if ($Format -eq "NTFS") {
-                $Acl = Get-Acl -Path $Path
-                $DenyRule = New-Object System.Security.AccessControl.FileSystemAccessRule("Everyone", "Write, Delete", "ContainerInherit, ObjectInherit", "None", "Deny")
-                $Acl.AddAccessRule($DenyRule)
-                Set-Acl -Path $Path -AclObject $Acl -ErrorAction SilentlyContinue
-            }
-
-            $Results += [PSCustomObject]@{ Path = $Path; Status = "VACCINATED"; FileSystem = $Format }
-        } catch {
-            $Results += [PSCustomObject]@{ Path = $Path; Status = "ERROR: $($_.Exception.Message)" }
-        }
-    }
-
-    # 2. Harden AutoRun Registry Policy (NoDriveTypeAutoRun = 0xFF)
+    $results = @()
     if ($HardenAutoRunPolicy) {
-        if (-not ($DryRun -or $WhatIfPreference)) {
-            $RegPaths = @(
-                "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer",
-                "HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
-            )
-            foreach ($RP in $RegPaths) {
-                try {
-                    if (-not (Test-Path $RP)) { New-Item -Path $RP -Force -ErrorAction SilentlyContinue | Out-Null }
-                    Set-ItemProperty -Path $RP -Name "NoDriveTypeAutoRun" -Value 0xFF -Type DWord -Force -ErrorAction SilentlyContinue | Out-Null
-                } catch {}
-            }
-        }
+        $results += [PSCustomObject](Set-VaultGuardAutoRunPolicy -Enabled $true -DryRun:$DryRun)
     }
-
-    # 3. Vaccinate Connected USB Media & All Drives (FAT32 & NTFS empty autorun.inf folder trick)
     if ($VaccinateConnectedUSB) {
-        $AllVolumes = Get-CimInstance Win32_LogicalDisk | Where-Object { $_.DriveType -eq 2 -or $_.DriveType -eq 3 }
-        foreach ($Vol in $AllVolumes) {
-            if (-not $Vol.DeviceID) { continue }
-            $AutorunFolder = "$($Vol.DeviceID)\autorun.inf"
-            if ($DryRun -or $WhatIfPreference) {
-                $Results += [PSCustomObject]@{ Path = $AutorunFolder; Status = "DryRun: Would vaccinate drive $($Vol.DeviceID)" }
-                continue
-            }
-
-            try {
-                if (Test-Path -LiteralPath $AutorunFolder) {
-                    $Item = Get-Item -LiteralPath $AutorunFolder -Force
-                    if (-not $Item.PSIsContainer) { Remove-Item -LiteralPath $AutorunFolder -Force }
-                }
-                if (-not (Test-Path -LiteralPath $AutorunFolder)) {
-                    New-Item -ItemType Directory -Path $AutorunFolder -Force | Out-Null
-                }
-
-                # Set ReadOnly, System, Hidden attributes on autorun.inf folder
-                $Item = Get-Item -LiteralPath $AutorunFolder -Force
-                $Item.Attributes = "ReadOnly, Hidden, System"
-
-                # Apply NTFS Deny Write/Delete ACL if NTFS
-                $Format = $Vol.FileSystem
-                if ($Format -eq "NTFS") {
-                    try {
-                        $Acl = Get-Acl -Path $AutorunFolder
-                        $DenyRule = New-Object System.Security.AccessControl.FileSystemAccessRule("Everyone", "Write, Delete", "ContainerInherit, ObjectInherit", "None", "Deny")
-                        $Acl.AddAccessRule($DenyRule)
-                        Set-Acl -Path $AutorunFolder -AclObject $Acl -ErrorAction SilentlyContinue
-                    } catch {}
-                }
-
-                $Results += [PSCustomObject]@{ Path = $AutorunFolder; Status = "DRIVE_IMMUNIZED"; DriveType = $Vol.DriveType; FileSystem = $Format }
-            } catch {
-                $Results += [PSCustomObject]@{ Path = $AutorunFolder; Status = "ERROR: $($_.Exception.Message)" }
-            }
-        }
+        $results += @(Set-VaultGuardUsbVaccine -DryRun:$DryRun)
     }
-
-    return $Results
+    return ,$results
 }
 
 function Remove-VaultGuardVaccine {
     [CmdletBinding(SupportsShouldProcess=$true)]
-    param(
-        [switch]$DryRun
-    )
+    param([switch]$DryRun)
 
-    $Results = @()
-
-    foreach ($Path in $script:TargetVaccinePaths) {
-        if ($DryRun -or $WhatIfPreference) {
-            $Results += [PSCustomObject]@{ Path = $Path; Status = "DryRun: Would remove vaccine trap" }
-            continue
-        }
-
-        try {
-            if (Test-Path $Path) {
-                $Acl = Get-Acl -Path $Path
-                $Acl.Access | Where-Object { $_.AccessControlType -eq "Deny" } | ForEach-Object { $Acl.RemoveAccessRule($_) }
-                Set-Acl -Path $Path -AclObject $Acl -ErrorAction SilentlyContinue
-                Remove-Item -Path $Path -Recurse -Force -ErrorAction Stop
-                $Results += [PSCustomObject]@{ Path = $Path; Status = "REMOVED" }
-            }
-        } catch {
-            $Results += [PSCustomObject]@{ Path = $Path; Status = "ERROR: $($_.Exception.Message)" }
-        }
-    }
-
-    return $Results
+    $results = @()
+    $results += @(Remove-VaultGuardUsbVaccine -DryRun:$DryRun)
+    $results += [PSCustomObject](Set-VaultGuardAutoRunPolicy -Enabled $false -DryRun:$DryRun)
+    return ,$results
 }
 
 function Get-VaultGuardVaccineStatus {
     [CmdletBinding()]
     param()
 
-    $Statuses = @()
-    $AllVaccinated = $true
-
-    # 1. System PC Path Traps
-    foreach ($Path in $script:TargetVaccinePaths) {
-        $IsVac = $false
-        $Details = "Missing"
-
-        if (Test-Path -LiteralPath $Path) {
-            $Item = Get-Item -LiteralPath $Path -Force
-            if ($Item.PSIsContainer) {
-                $IsVac = $true
-                $Details = "Directory trap present"
-            }
-        } else {
-            $AllVaccinated = $false
-        }
-
-        $Statuses += [PSCustomObject]@{
-            Path         = $Path
-            IsVaccinated = $IsVac
-            Details      = $Details
+    $driveStatuses = @()
+    foreach ($volume in Get-VaultGuardRemovableVolumes) {
+        $autorunDir = "$($volume.DeviceID)\autorun.inf"
+        $marker = Join-Path $autorunDir $script:VaccineMarkerName
+        $driveStatuses += [PSCustomObject]@{
+            Drive        = $volume.DeviceID
+            IsVaccinated = (Test-Path -LiteralPath $marker)
+            Details      = if (Test-Path -LiteralPath $marker) { "VaultGuard marker present" } elseif (Test-Path -LiteralPath $autorunDir) { "autorun.inf already exists; not modified" } else { "Not vaccinated" }
         }
     }
 
-    # 2. Drive Volume Root autorun.inf Traps (C:\autorun.inf, D:\autorun.inf, USBs)
-    $AllVolumes = Get-CimInstance Win32_LogicalDisk | Where-Object { $_.DriveType -eq 2 -or $_.DriveType -eq 3 }
-    foreach ($Vol in $AllVolumes) {
-        if (-not $Vol.DeviceID) { continue }
-        $AutorunFolder = "$($Vol.DeviceID)\autorun.inf"
-        $IsVac = $false
-        $Details = "No autorun.inf trap"
-
-        if (Test-Path -LiteralPath $AutorunFolder) {
-            $Item = Get-Item -LiteralPath $AutorunFolder -Force
-            if ($Item.PSIsContainer) {
-                $IsVac = $true
-                $Fs = if ($Vol.FileSystem) { $Vol.FileSystem } else { "NTFS/FAT32" }
-                $Details = "Drive autorun.inf directory trap present ($Fs)"
-            } else {
-                $Details = "MALICIOUS autorun.inf file present!"
-                $AllVaccinated = $false
-            }
-        } else {
-            $AllVaccinated = $false
-        }
-
-        $Statuses += [PSCustomObject]@{
-            Path         = $AutorunFolder
-            IsVaccinated = $IsVac
-            Details      = $Details
-        }
-    }
-
-    # 3. Check AutoRun Policy Status
-    $AutoRunLocked = $false
+    $autoRunLocked = $false
     try {
-        $Val = (Get-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Name "NoDriveTypeAutoRun" -ErrorAction SilentlyContinue).NoDriveTypeAutoRun
-        if ($Val -eq 255 -or $Val -eq 0xFF) { $AutoRunLocked = $true }
+        $value = (Get-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Name "NoDriveTypeAutoRun" -ErrorAction Stop).NoDriveTypeAutoRun
+        $autoRunLocked = ($value -eq 255)
     } catch {}
 
-    $Statuses += [PSCustomObject]@{
-        Path         = "Registry Policy: NoDriveTypeAutoRun"
-        IsVaccinated = $AutoRunLocked
-        Details      = if ($AutoRunLocked) { "Policy Locked (0xFF - AutoRun Disabled for All Drives)" } else { "Unprotected (Default AutoRun Enabled)" }
-    }
-
     return @{
-        FullyVaccinated      = $AllVaccinated
-        AutoRunPolicyLocked  = $AutoRunLocked
-        PathStatuses         = $Statuses
+        FullyVaccinated     = ($driveStatuses.Count -eq 0 -or @($driveStatuses | Where-Object { -not $_.IsVaccinated }).Count -eq 0)
+        AutoRunPolicyLocked = $autoRunLocked
+        DriveStatuses       = $driveStatuses
     }
 }
-
-# ------------------------------------------------------------------------------
-# Real-Time USB Win32_VolumeChangeEvent Service Watcher
-# ------------------------------------------------------------------------------
 
 $script:UsbWatcher = $null
 
@@ -233,23 +228,17 @@ function Start-VaultGuardUsbWatcher {
     [CmdletBinding()]
     param()
 
-    if ($script:UsbWatcher) {
-        return @{ Success = $true; Message = "USB Watcher is already running." }
-    }
+    if ($script:UsbWatcher) { return @{ Success = $true; Message = "USB watcher is already running." } }
 
-    $Query = "SELECT * FROM Win32_VolumeChangeEvent WHERE EventType = 2" # Drive Arrival
-    $script:UsbWatcher = Register-CimIndicationEvent -Query $Query -SourceIdentifier "VaultGuard_USB_Arrival" -Action {
-        $DriveLetter = $Event.SourceEventArgs.NewEvent.DriveName
-        if ($DriveLetter) {
-            # Auto-vaccinate and scan newly inserted USB drive
-            Set-VaultGuardVaccine -VaccinateConnectedUSB | Out-Null
+    try {
+        $query = "SELECT * FROM Win32_VolumeChangeEvent WHERE EventType = 2"
+        $script:UsbWatcher = Register-CimIndicationEvent -Query $query -SourceIdentifier "VaultGuard_USB_Arrival" -Action {
+            $drive = $Event.SourceEventArgs.NewEvent.DriveName
+            if ($drive) { Set-VaultGuardUsbVaccine -DrivePath $drive | Out-Null }
         }
-    }
-
-    return @{
-        Success   = $true
-        Message   = "USB VolumeChangeEvent Watcher started successfully."
-        SourceId  = "VaultGuard_USB_Arrival"
+        return @{ Success = $true; Message = "USB arrival watcher started."; SourceId = "VaultGuard_USB_Arrival" }
+    } catch {
+        return @{ Success = $false; Message = "USB watcher failed to start: $($_.Exception.Message)" }
     }
 }
 
@@ -257,12 +246,14 @@ function Stop-VaultGuardUsbWatcher {
     [CmdletBinding()]
     param()
 
-    if ($script:UsbWatcher) {
+    try {
         Unregister-Event -SourceIdentifier "VaultGuard_USB_Arrival" -ErrorAction SilentlyContinue
+        Get-Job -Name "VaultGuard_USB_Arrival" -ErrorAction SilentlyContinue | Remove-Job -Force -ErrorAction SilentlyContinue
         $script:UsbWatcher = $null
-        return @{ Success = $true; Message = "USB Watcher stopped." }
+        return @{ Success = $true; Message = "USB watcher stopped." }
+    } catch {
+        return @{ Success = $false; Message = "USB watcher stop failed: $($_.Exception.Message)" }
     }
-    return @{ Success = $true; Message = "USB Watcher was not active." }
 }
 
-Export-ModuleMember -Function Set-VaultGuardVaccine, Remove-VaultGuardVaccine, Get-VaultGuardVaccineStatus, Start-VaultGuardUsbWatcher, Stop-VaultGuardUsbWatcher
+Export-ModuleMember -Function Set-VaultGuardAutoRunPolicy, Set-VaultGuardUsbVaccine, Remove-VaultGuardUsbVaccine, Set-VaultGuardVaccine, Remove-VaultGuardVaccine, Get-VaultGuardVaccineStatus, Start-VaultGuardUsbWatcher, Stop-VaultGuardUsbWatcher
