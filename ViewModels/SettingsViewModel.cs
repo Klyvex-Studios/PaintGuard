@@ -1,8 +1,6 @@
 using System;
 using System.ComponentModel;
-using System.Net.Http;
 using System.Runtime.CompilerServices;
-using System.Text;
 using System.Threading.Tasks;
 using VaultGuard360.Services;
 
@@ -10,31 +8,18 @@ namespace VaultGuard360.ViewModels
 {
     public class SettingsViewModel : INotifyPropertyChanged
     {
-        private bool _isUsbVaccineEnabled = true;
-        private bool _isAutoRunHardened = true;
+        private bool _isRemovableMediaProtectionEnabled = true;
         private bool _isApplyingProtection;
 
-        public bool IsUsbVaccineEnabled
+        public bool IsRemovableMediaProtectionEnabled
         {
-            get => _isUsbVaccineEnabled;
+            get => _isRemovableMediaProtectionEnabled;
             set
             {
-                if (_isUsbVaccineEnabled == value) return;
-                _isUsbVaccineEnabled = value;
+                if (_isRemovableMediaProtectionEnabled == value) return;
+                _isRemovableMediaProtectionEnabled = value;
                 OnPropertyChanged();
-                _ = ApplyUsbProtectionAsync();
-            }
-        }
-
-        public bool IsAutoRunHardened
-        {
-            get => _isAutoRunHardened;
-            set
-            {
-                if (_isAutoRunHardened == value) return;
-                _isAutoRunHardened = value;
-                OnPropertyChanged();
-                _ = ApplyUsbProtectionAsync();
+                _ = ApplyRemovableMediaProtectionAsync();
             }
         }
 
@@ -56,15 +41,18 @@ namespace VaultGuard360.ViewModels
         public string SupportStatus { get => _supportStatus; set { _supportStatus = value; OnPropertyChanged(); } }
         public bool IsSending { get => _isSending; set { _isSending = value; OnPropertyChanged(); } }
 
-        private async Task ApplyUsbProtectionAsync()
+        private async Task ApplyRemovableMediaProtectionAsync()
         {
             if (IsApplyingProtection || !EngineService.Instance.IsEngineInitialized) return;
             IsApplyingProtection = true;
             try
             {
-                bool enabled = IsUsbVaccineEnabled || IsAutoRunHardened;
-                await EngineService.Instance.SetUsbProtectionAsync(enabled);
-                SupportStatus = enabled ? "USB and AutoRun protection settings applied." : "USB vaccine protections disabled.";
+                bool success = await EngineService.Instance.SetUsbProtectionAsync(IsRemovableMediaProtectionEnabled);
+                SupportStatus = success
+                    ? (IsRemovableMediaProtectionEnabled
+                        ? "Removable-media vaccine and AutoRun hardening enabled."
+                        : "VaultGuard removable-media protections reverted where VaultGuard owns the setting.")
+                    : "The protection setting could not be fully applied.";
             }
             catch (Exception ex)
             {
@@ -86,12 +74,8 @@ namespace VaultGuard360.ViewModels
 
             IsSending = true;
             SupportStatus = "Preparing your support message...";
-
             try
             {
-                // Klyvex does not yet expose a dedicated support API in this repository.
-                // Use the user's mail client instead of silently posting security-product
-                // support data to an unrelated third-party endpoint.
                 OpenMailClientFallback();
                 await Task.CompletedTask;
             }
