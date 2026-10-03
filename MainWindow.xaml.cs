@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Input;
 using VaultGuard360.ViewModels;
 
 namespace VaultGuard360
@@ -8,8 +9,8 @@ namespace VaultGuard360
         public MainWindow()
         {
             InitializeComponent();
-            MaxHeight = SystemParameters.WorkArea.Height - 20;
-            MaxWidth = SystemParameters.WorkArea.Width - 20;
+            MaxHeight = SystemParameters.WorkArea.Height;
+            MaxWidth = SystemParameters.WorkArea.Width;
         }
 
         private MainViewModel? VM => DataContext as MainViewModel;
@@ -24,18 +25,36 @@ namespace VaultGuard360
         private void ToggleShield_Click(object sender, RoutedEventArgs e) => VM?.ToggleShieldStatus();
         private void ToggleHeuristic_Click(object sender, RoutedEventArgs e) => VM?.ToggleHeuristicStatus();
 
-        private void ToggleProtection_Click(object sender, RoutedEventArgs e) => VM?.ToggleRealTimeProtection();
-        private void QuickScanTop_Click(object sender, RoutedEventArgs e)
+        private async void ToggleProtection_Click(object sender, RoutedEventArgs e)
         {
-            VM?.Navigate("Dashboard");
-            VM?.DashboardVM.ExecuteQuickScan();
+            if (VM != null) await VM.ToggleRealTimeProtectionAsync();
         }
 
-        private void Header_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        private async void QuickScanTop_Click(object sender, RoutedEventArgs e)
         {
-            if (e.LeftButton == System.Windows.Input.MouseButtonState.Pressed) DragMove();
+            if (VM == null) return;
+            VM.Navigate("Dashboard");
+            await VM.DashboardVM.ExecuteQuickScanAsync();
         }
+
+        private void Header_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ClickCount == 2)
+            {
+                ToggleMaximize();
+                return;
+            }
+            if (e.LeftButton == MouseButtonState.Pressed && WindowState != WindowState.Maximized)
+                DragMove();
+        }
+
         private void MinimizeWindow_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
+        private void MaximizeWindow_Click(object sender, RoutedEventArgs e) => ToggleMaximize();
         private void CloseWindow_Click(object sender, RoutedEventArgs e) => Close();
+
+        private void ToggleMaximize()
+        {
+            WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+        }
     }
 }
