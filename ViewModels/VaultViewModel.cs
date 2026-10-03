@@ -1,198 +1,191 @@
 using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.IO;
+using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Security.Cryptography;
-using System.Text;
 using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Input;
 using VaultGuard360.Services;
 
 namespace VaultGuard360.ViewModels
 {
     public class VaultItem
     {
+        public string Id { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public string Path { get; set; } = string.Empty;
         public string Hash { get; set; } = string.Empty;
         public string Status { get; set; } = string.Empty;
-        public string DateAdded { get; set; } = DateTime.Now.ToString("yyyy-MM-dd HH:mm");
-        public bool IsQuarantined { get; set; } = false;
+        public string DateAdded { get; set; } = string.Empty;
+        public bool IsQuarantined { get; set; }
     }
 
     public class VaultViewModel : INotifyPropertyChanged
     {
-        public ObservableCollection<VaultItem> BaselineAssets { get; } = new ObservableCollection<VaultItem>();
-        public ObservableCollection<VaultItem> QuarantinedAssets { get; } = new ObservableCollection<VaultItem>();
-        public ObservableCollection<VaultItem> GoldenVaultAssets { get; } = new ObservableCollection<VaultItem>();
+        public ObservableCollection<VaultItem> BaselineAssets { get; } = new();
+        public ObservableCollection<VaultItem> QuarantinedAssets { get; } = new();
+        public ObservableCollection<VaultItem> GoldenVaultAssets { get; } = new();
 
-        private string _statusMessage = "Triple-Vault Operational (Baseline, Quarantine & Golden Vault)";
-        public string StatusMessage
-        {
-            get => _statusMessage;
-            set { _statusMessage = value; OnPropertyChanged(); }
-        }
+        private string _statusMessage = "Loading protected storage...";
+        private bool _isBusy;
 
-        private bool _isBusy = false;
-        public bool IsBusy
-        {
-            get => _isBusy;
-            set { _isBusy = value; OnPropertyChanged(); }
-        }
+        public string StatusMessage { get => _statusMessage; set { _statusMessage = value; OnPropertyChanged(); } }
+        public bool IsBusy { get => _isBusy; set { _isBusy = value; OnPropertyChanged(); } }
 
         public VaultViewModel()
         {
-            LoadDefaultVaultItems();
+            _ = RefreshAsync();
         }
 
-        public void SyncVaults()
+        public async Task RefreshAsync()
         {
-            LoadDefaultVaultItems();
-            StatusMessage = "Verified golden baseline assets against ACL storage.";
-            NotificationService.Instance.AddNotification("Vault Sync", "Verified 842 golden baseline assets against ACL storage.", false);
-        }
-
-        public void LoadDefaultVaultItems()
-        {
-            BaselineAssets.Clear();
-            QuarantinedAssets.Clear();
-            GoldenVaultAssets.Clear();
-
-            // Load real system binaries SHA256 if available
-            AddBaselineItem("mspaint.exe", @"C:\Windows\System32\mspaint.exe", "GOLDEN MATCH");
-            AddBaselineItem("cmd.exe", @"C:\Windows\System32\cmd.exe", "VERIFIED");
-            AddBaselineItem("notepad.exe", @"C:\Windows\System32\notepad.exe", "VERIFIED");
-            AddBaselineItem("explorer.exe", @"C:\Windows\explorer.exe", "GOLDEN MATCH");
-
-            // Golden Vault Templates
-            GoldenVaultAssets.Add(new VaultItem { Name = "system_manifest_gold.json", Path = @"C:\ProgramData\VaultGuard\Golden\", Hash = "SHA256: 8f4e9a2b71cc...", Status = "IMMUTABLE" });
-            GoldenVaultAssets.Add(new VaultItem { Name = "expiro_heuristic_rulebase.bin", Path = @"C:\ProgramData\VaultGuard\Golden\", Hash = "SHA256: a91f32ee810c...", Status = "ENFORCED" });
-        }
-
-        private void AddBaselineItem(string fileName, string fullPath, string defaultStatus)
-        {
-            string hashStr = "SHA256: Calculating...";
-            if (File.Exists(fullPath))
+            if (!EngineService.Instance.IsEngineInitialized)
             {
-                try
-                {
-                    using var sha = SHA256.Create();
-                    using var stream = File.OpenRead(fullPath);
-                    byte[] hash = sha.ComputeHash(stream);
-                    hashStr = "SHA256: " + BitConverter.ToString(hash).Replace("-", "").Substring(0, 16) + "...";
-                }
-                catch
-                {
-                    hashStr = "SHA256: Baseline Hash Verified";
-                }
+                StatusMessage = "Protection engine is offline. Vault data is unavailable.";
+                return;
             }
 
-            BaselineAssets.Add(new VaultItem
+            IsBusy = true;
+            try
             {
-                Name = fileName,
-                Path = fullPath,
-                Hash = hashStr,
-                Status = defaultStatus
-            });
+                var baseline = await EngineService.Instance.GetBaselineAsync(200);
+                var quarantine = await EngineService.Instance.GetQuarantineAsync();
+
+                BaselineAssets.Clear();
+                foreach (var item in baseline)
+                {
+                    BaselineAssets.Add(new VaultItem
+                    {
+                        Name = item.FileName,
+                        Path = item.OriginalPath,
+                        Hash = ShortHash(item.Sha256),
+                        Status = "VERIFIED"
+                    });
+                }
+
+                QuarantinedAssets.Clear();
+                foreach (var item in quarantine)
+                {
+                    QuarantinedAssets.Add(new VaultItem
+                    {
+                        Id = item.Id,
+                        Name = item.OriginalName,
+                        Path = item.OriginalPath,
+                        Hash = ShortHash(item.Sha256),
+                        Status = string.IsNullOrWhiteSpace(item.Reason) ? "ISOLATED" : item.Reason,
+                        DateAdded = item.QuarantinedAt,
+                        IsQuarantined = true
+                    });
+                }
+
+                GoldenVaultAssets.Clear();
+                GoldenVaultAssets.Add(new VaultItem
+                {
+                    Name = "Protected recovery store",
+                    Path = @"C:\ProgramData\VaultGuard\GoldenVault",
+                    Hash = "Engine-managed",
+                    Status = "READY"
+                });
+
+                StatusMessage = $"{BaselineAssets.Count} baseline item(s) loaded; {QuarantinedAssets.Count} quarantined item(s).";
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Vault refresh failed: {ex.Message}";
+            }
+            finally
+            {
+                IsBusy = false;
+            }
         }
 
         public async Task CreateSystemBaselineSnapshotAsync()
         {
+            if (IsBusy) return;
             IsBusy = true;
-            StatusMessage = "Scanning system binaries and computing SHA-256 baseline snapshot...";
-            NotificationService.Instance.AddNotification("Snapshot Engine", "Initiating System Baseline Snapshot...", false);
-
-            await Task.Run(() =>
-            {
-                try
-                {
-                    string baselineDir = @"C:\ProgramData\VaultGuard\Baseline";
-                    if (!Directory.Exists(baselineDir)) Directory.CreateDirectory(baselineDir);
-
-                    string snapshotFile = System.IO.Path.Combine(baselineDir, $"snapshot_{DateTime.Now:yyyyMMdd_HHmmss}.json");
-                    StringBuilder sb = new StringBuilder();
-                    sb.AppendLine("{");
-                    sb.AppendLine($"  \"Timestamp\": \"{DateTime.Now:o}\",");
-                    sb.AppendLine("  \"Baselines\": [");
-                    
-                    foreach (var item in BaselineAssets)
-                    {
-                        sb.AppendLine($"    {{ \"File\": \"{item.Name}\", \"Path\": \"{item.Path.Replace("\\", "\\\\")}\", \"Hash\": \"{item.Hash}\" }},");
-                    }
-                    sb.AppendLine("  ]");
-                    sb.AppendLine("}");
-                    
-                    File.WriteAllText(snapshotFile, sb.ToString());
-                }
-                catch { }
-            });
-
-            IsBusy = false;
-            StatusMessage = "System Baseline Snapshot created successfully in C:\\ProgramData\\VaultGuard\\Baseline.";
-            NotificationService.Instance.AddNotification("Snapshot Complete", "Saved System Baseline Snapshot to Golden Vault.", false);
-        }
-
-        public async Task RunExpiroRemediationAsync()
-        {
-            IsBusy = true;
-            StatusMessage = "Executing 4-Stage Expiro Remediation Ladder...";
-            
-            NotificationService.Instance.AddNotification("Stage 1 (Terminate)", "Terminated active malicious PE threads in RAM.", false);
-            await Task.Delay(400);
-
-            NotificationService.Instance.AddNotification("Stage 2 (Restore)", "Replaced corrupted binaries with clean Golden Vault copies.", false);
-            await Task.Delay(400);
-
-            NotificationService.Instance.AddNotification("Stage 3 (Delegate)", "Invoked SFC / DISM native Windows system integrity checks.", false);
-            await Task.Delay(400);
-
-            NotificationService.Instance.AddNotification("Stage 4 (Flag)", "Remediation complete. System integrity verified.", false);
-            
-            IsBusy = false;
-            StatusMessage = "4-Stage Expiro Remediation completed successfully.";
-        }
-
-        public void QuarantineFile(string filePath, string threatName)
-        {
+            StatusMessage = "Capturing independent clean-file baseline copies...";
             try
             {
-                string quarantineDir = @"C:\ProgramData\VaultGuard\Quarantine";
-                if (!Directory.Exists(quarantineDir)) Directory.CreateDirectory(quarantineDir);
-
-                string fileName = System.IO.Path.GetFileName(filePath);
-                QuarantinedAssets.Add(new VaultItem
+                var result = await EngineService.Instance.CaptureBaselineAsync(new[]
                 {
-                    Name = fileName,
-                    Path = filePath,
-                    Hash = "PAYLOAD ISOLATED",
-                    Status = threatName.ToUpper(),
-                    IsQuarantined = true
+                    Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + @"\Downloads",
+                    @"C:\Program Files"
                 });
-                NotificationService.Instance.AddNotification("Quarantine Vault", $"Isolated payload {fileName} ({threatName}).", true);
+                StatusMessage = result.Message;
+                NotificationService.Instance.AddNotification("Baseline capture", result.Message, !result.Success);
+                await RefreshAsync();
             }
-            catch { }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Baseline capture failed: {ex.Message}";
+                NotificationService.Instance.AddNotification("Baseline capture failed", ex.Message, true);
+            }
+            finally
+            {
+                IsBusy = false;
+            }
         }
 
-        public void RestoreQuarantinedItem(VaultItem item)
+        public async Task RunRemediationAsync()
         {
-            if (item == null) return;
-            QuarantinedAssets.Remove(item);
-            NotificationService.Instance.AddNotification("Vault Restore", $"Restored {item.Name} to {item.Path}.", false);
+            if (IsBusy) return;
+            IsBusy = true;
+            StatusMessage = "Running live detection and remediation against C:\\...";
+            try
+            {
+                var result = await EngineService.Instance.RemediateAsync(new[] { @"C:\" }, false);
+                StatusMessage = $"{result.Message} {result.ThreatsRemediated} remediated; {result.FilesRestored} restored.";
+                NotificationService.Instance.AddNotification("Remediation", StatusMessage, !result.Success);
+                await RefreshAsync();
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Remediation failed: {ex.Message}";
+                NotificationService.Instance.AddNotification("Remediation failed", ex.Message, true);
+            }
+            finally
+            {
+                IsBusy = false;
+            }
         }
 
-        public void DeleteQuarantinedItem(VaultItem item)
+        public async Task RestoreQuarantinedItemAsync(VaultItem? item)
         {
-            if (item == null) return;
-            QuarantinedAssets.Remove(item);
-            NotificationService.Instance.AddNotification("Vault Clean", $"Permanently destroyed isolated threat payload {item.Name}.", false);
+            if (item == null || string.IsNullOrWhiteSpace(item.Id)) return;
+            try
+            {
+                bool ok = await EngineService.Instance.RestoreQuarantineAsync(item.Id);
+                NotificationService.Instance.AddNotification("Quarantine restore", ok ? $"Restored {item.Name}." : $"Could not restore {item.Name}.", !ok);
+                await RefreshAsync();
+            }
+            catch (Exception ex)
+            {
+                NotificationService.Instance.AddNotification("Quarantine restore failed", ex.Message, true);
+            }
         }
+
+        public async Task DeleteQuarantinedItemAsync(VaultItem? item)
+        {
+            if (item == null || string.IsNullOrWhiteSpace(item.Id)) return;
+            try
+            {
+                bool ok = await EngineService.Instance.DeleteQuarantineAsync(item.Id);
+                NotificationService.Instance.AddNotification("Quarantine purge", ok ? $"Permanently deleted {item.Name}." : $"Could not delete {item.Name}.", !ok);
+                await RefreshAsync();
+            }
+            catch (Exception ex)
+            {
+                NotificationService.Instance.AddNotification("Quarantine purge failed", ex.Message, true);
+            }
+        }
+
+        public void SyncVaults() => _ = RefreshAsync();
+
+        private static string ShortHash(string hash)
+            => string.IsNullOrWhiteSpace(hash) ? "No hash" : $"SHA256: {(hash.Length > 16 ? hash[..16] + "..." : hash)}";
 
         public event PropertyChangedEventHandler? PropertyChanged;
         protected void OnPropertyChanged([CallerMemberName] string? name = null)
-        {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
-        }
+            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 }
