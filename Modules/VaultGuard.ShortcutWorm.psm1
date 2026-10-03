@@ -48,7 +48,7 @@ function Test-ShortcutWormThreat {
     if (Test-Path -LiteralPath $desktopIni) {
         try {
             $iniContent = Get-Content -LiteralPath $desktopIni -Raw -ErrorAction Stop
-            if ($iniContent -match "(?i)SHELL32\.dll,7") {
+            if ($iniContent -match '(?i)SHELL32\.dll,7') {
                 $indicators += "desktop.ini contains the shortcut-worm icon-swap pattern"
                 $confidence += 20
             }
@@ -63,9 +63,9 @@ function Test-ShortcutWormThreat {
             $target = [string]$shortcut.TargetPath
             $arguments = [string]$shortcut.Arguments
 
-            $interpreterTarget = $target -match "(?i)(cmd\.exe|wscript\.exe|cscript\.exe|powershell\.exe|pwsh\.exe)$"
-            $scriptPayload = $arguments -match "(?i)\.(vbs|vbe|js|jse|wsf|bat|cmd|ps1)(\s|$|\")"
-            $hiddenExecution = $arguments -match "(?i)(-windowstyle\s+hidden|//b|/c\s+start\s+/min)"
+            $interpreterTarget = $target -match '(?i)(cmd\.exe|wscript\.exe|cscript\.exe|powershell\.exe|pwsh\.exe)$'
+            $scriptPayload = $arguments -match '(?i)\.(vbs|vbe|js|jse|wsf|bat|cmd|ps1)(\s|$|")'
+            $hiddenExecution = $arguments -match '(?i)(-windowstyle\s+hidden|//b|/c\s+start\s+/min)'
 
             if (($interpreterTarget -and $scriptPayload) -or ($interpreterTarget -and $hiddenExecution)) {
                 $suspiciousLnkFiles += $lnk
@@ -145,7 +145,7 @@ function Invoke-ShortcutWormRemediation {
     if (Test-Path -LiteralPath $desktopIni) {
         try {
             $content = Get-Content -LiteralPath $desktopIni -Raw -ErrorAction Stop
-            if ($content -match "(?i)SHELL32\.dll,7") {
+            if ($content -match '(?i)SHELL32\.dll,7') {
                 Protect-FileToQuarantine -FilePath $desktopIni -Reason "Shortcut Worm icon hijack" | Out-Null
                 $actions += "Quarantined shortcut-worm desktop.ini icon hijack"
             }
