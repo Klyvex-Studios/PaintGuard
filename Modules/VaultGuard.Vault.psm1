@@ -43,7 +43,7 @@ function Initialize-VaultGuardProtection {
             $acl.AddAccessRule($user)
             Set-Acl -LiteralPath $dir -AclObject $acl -ErrorAction Stop
         } catch {
-            Write-Verbose "Vault ACL hardening warning for $dir: $($_.Exception.Message)"
+            Write-Verbose "Vault ACL hardening warning for ${dir}: $($_.Exception.Message)"
         }
     }
 }
@@ -101,10 +101,6 @@ function Test-VaultGuardManifestAuthentication {
 }
 
 Initialize-VaultGuardProtection
-
-# ------------------------------------------------------------------------------
-# Quarantine
-# ------------------------------------------------------------------------------
 
 function Protect-FileToQuarantine {
     [CmdletBinding(SupportsShouldProcess=$true)]
@@ -229,10 +225,6 @@ function Remove-QuarantinedItem {
         return @{ Success = $false; Message = "Purge failed: $($_.Exception.Message)" }
     }
 }
-
-# ------------------------------------------------------------------------------
-# Baseline and recovery
-# ------------------------------------------------------------------------------
 
 function New-VaultGuardBaseline {
     [CmdletBinding(SupportsShouldProcess=$true)]
