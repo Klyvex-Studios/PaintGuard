@@ -1,96 +1,88 @@
 # ==============================================================================
 # Module: VaultGuard.Expiro.psm1
-# Purpose: Deep-Pass Detector for Expiro PE Infector Family & 4-Rung Remediation
+# Purpose: Conservative Expiro PE detector and recovery remediation
 # ==============================================================================
 
 Import-Module (Join-Path $PSScriptRoot "VaultGuard.Vault.psm1") -ErrorAction SilentlyContinue
 
 function Get-PEHeaderInfo {
     [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)][string]$FilePath
-    )
+    param([Parameter(Mandatory=$true)][string]$FilePath)
 
     if (-not (Test-Path -LiteralPath $FilePath -PathType Leaf)) { return $null }
 
+    $stream = $null
+    $reader = $null
     try {
-        $Stream = [System.IO.File]::OpenRead($FilePath)
-        $Reader = New-Object System.IO.BinaryReader($Stream)
+        $stream = [System.IO.File]::OpenRead($FilePath)
+        $reader = New-Object System.IO.BinaryReader($stream)
+        if ($reader.ReadUInt16() -ne 0x5A4D) { return $null }
 
-        # 1. Read DOS Header (e_magic 'MZ')
-        $e_magic = $Reader.ReadUInt16()
-        if ($e_magic -ne 0x5A4D) { $Stream.Close(); return $null }
+        $stream.Seek(0x3C, [System.IO.SeekOrigin]::Begin) | Out-Null
+        $eLfanew = $reader.ReadInt32()
+        if ($eLfanew -lt 0x40 -or $eLfanew -gt ($stream.Length - 256)) { return $null }
 
-        $Stream.Seek(0x3C, [System.IO.SeekOrigin]::Begin) | Out-Null
-        $e_lfanew = $Reader.ReadInt32()
+        $stream.Seek($eLfanew, [System.IO.SeekOrigin]::Begin) | Out-Null
+        if ($reader.ReadUInt32() -ne 0x00004550) { return $null }
 
-        # 2. Read PE Header ('PE\0\0')
-        $Stream.Seek($e_lfanew, [System.IO.SeekOrigin]::Begin) | Out-Null
-        $pe_sig = $Reader.ReadUInt32()
-        if ($pe_sig -ne 0x00004550) { $Stream.Close(); return $null }
+        $machine = $reader.ReadUInt16()
+        $numberOfSections = $reader.ReadUInt16()
+        [void]$reader.ReadUInt32()
+        [void]$reader.ReadUInt32()
+        [void]$reader.ReadUInt32()
+        $sizeOfOptionalHeader = $reader.ReadUInt16()
+        $characteristics = $reader.ReadUInt16()
 
-        # 3. Read COFF File Header (20 Bytes)
-        $Machine = $Reader.ReadUInt16()            # 2 bytes
-        $NumberOfSections = $Reader.ReadUInt16()   # 2 bytes
-        $TimeDateStamp = $Reader.ReadUInt32()      # 4 bytes
-        $PointerToSymbolTable = $Reader.ReadUInt32()# 4 bytes
-        $NumberOfSymbols = $Reader.ReadUInt32()    # 4 bytes
-        $SizeOfOptionalHeader = $Reader.ReadUInt16()# 2 bytes
-        $Characteristics = $Reader.ReadUInt16()     # 2 bytes
+        if ($numberOfSections -lt 1 -or $numberOfSections -gt 96 -or $sizeOfOptionalHeader -lt 64) { return $null }
 
-        # 4. Read Optional Header
-        $OptHeaderOffset = $Stream.Position
-        $Magic = $Reader.ReadUInt16()              # 0x010B (PE32) or 0x020B (PE32+)
-        
-        $AddressOfEntryPoint = 0
-        if ($Magic -eq 0x010B) { # PE32
-            $Stream.Seek($OptHeaderOffset + 16, [System.IO.SeekOrigin]::Begin) | Out-Null
-            $AddressOfEntryPoint = $Reader.ReadUInt32()
-        } elseif ($Magic -eq 0x020B) { # PE32+
-            $Stream.Seek($OptHeaderOffset + 16, [System.IO.SeekOrigin]::Begin) | Out-Null
-            $AddressOfEntryPoint = $Reader.ReadUInt32()
-        }
+        $optionalOffset = $stream.Position
+        $magic = $reader.ReadUInt16()
+        if ($magic -ne 0x010B -and $magic -ne 0x020B) { return $null }
 
-        # 5. Read Section Table (Starts right after Optional Header)
-        $SectionOffset = $OptHeaderOffset + $SizeOfOptionalHeader
-        $Stream.Seek($SectionOffset, [System.IO.SeekOrigin]::Begin) | Out-Null
+        $stream.Seek($optionalOffset + 16, [System.IO.SeekOrigin]::Begin) | Out-Null
+        $entryPoint = $reader.ReadUInt32()
 
-        $Sections = @()
-        for ($i = 0; $i -lt $NumberOfSections; $i++) {
-            $NameBytes = $Reader.ReadBytes(8)
-            $SecName = ([System.Text.Encoding]::ASCII.GetString($NameBytes)).TrimEnd("`0")
-            $VirtualSize = $Reader.ReadUInt32()
-            $VirtualAddress = $Reader.ReadUInt32()
-            $SizeOfRawData = $Reader.ReadUInt32()
-            $PointerToRawData = $Reader.ReadUInt32()
-            $PointerToRelocations = $Reader.ReadUInt32()
-            $PointerToLinenumbers = $Reader.ReadUInt32()
-            $NumberOfRelocations = $Reader.ReadUInt16()
-            $NumberOfLinenumbers = $Reader.ReadUInt16()
-            $SecCharacteristics = $Reader.ReadUInt32()
+        $sectionOffset = $optionalOffset + $sizeOfOptionalHeader
+        if ($sectionOffset + ($numberOfSections * 40) -gt $stream.Length) { return $null }
+        $stream.Seek($sectionOffset, [System.IO.SeekOrigin]::Begin) | Out-Null
 
-            $Sections += [PSCustomObject]@{
+        $sections = @()
+        for ($i = 0; $i -lt $numberOfSections; $i++) {
+            $name = ([System.Text.Encoding]::ASCII.GetString($reader.ReadBytes(8))).TrimEnd("`0")
+            $virtualSize = $reader.ReadUInt32()
+            $virtualAddress = $reader.ReadUInt32()
+            $rawSize = $reader.ReadUInt32()
+            $rawPointer = $reader.ReadUInt32()
+            [void]$reader.ReadUInt32()
+            [void]$reader.ReadUInt32()
+            [void]$reader.ReadUInt16()
+            [void]$reader.ReadUInt16()
+            $sectionCharacteristics = $reader.ReadUInt32()
+
+            $sections += [PSCustomObject]@{
                 Index            = $i
-                Name             = $SecName
-                VirtualSize      = $VirtualSize
-                VirtualAddress   = $VirtualAddress
-                SizeOfRawData    = $SizeOfRawData
-                PointerToRawData = $PointerToRawData
-                Characteristics  = $SecCharacteristics
+                Name             = $name
+                VirtualSize      = [uint32]$virtualSize
+                VirtualAddress   = [uint32]$virtualAddress
+                SizeOfRawData    = [uint32]$rawSize
+                PointerToRawData = [uint32]$rawPointer
+                Characteristics  = [uint32]$sectionCharacteristics
             }
         }
 
-        $Stream.Close()
-
         return [PSCustomObject]@{
-            Machine             = $Machine
-            NumberOfSections    = [int]$NumberOfSections
-            AddressOfEntryPoint = [int]$AddressOfEntryPoint
-            Sections            = $Sections
+            Machine             = $machine
+            NumberOfSections    = [int]$numberOfSections
+            AddressOfEntryPoint = [uint32]$entryPoint
+            Characteristics     = $characteristics
+            FileSize            = $stream.Length
+            Sections            = $sections
         }
     } catch {
-        if ($Stream) { $Stream.Close() }
         return $null
+    } finally {
+        if ($reader) { $reader.Dispose() }
+        elseif ($stream) { $stream.Dispose() }
     }
 }
 
@@ -98,7 +90,7 @@ function Get-ExpiroSignature {
     return @{
         Family      = "Expiro PE Infector"
         Aliases     = @("Win32/Expiro", "W32.Expiro", "PE Appender")
-        Description = "Polymorphic PE section appender infector (.vmp0/.svp sections, EntryPoint shifted to trailing section ~512KB)."
+        Description = "PE-infector indicators requiring multiple corroborating structural anomalies before automatic remediation."
         Severity    = "CRITICAL"
     }
 }
@@ -114,50 +106,64 @@ function Test-ExpiroThreat {
         return @{ Verdict = "Clean"; ConfidenceScore = 0; Indicators = @() }
     }
 
-    $PE = Get-PEHeaderInfo -FilePath $FilePath
-    if (-not $PE) {
+    $pe = Get-PEHeaderInfo -FilePath $FilePath
+    if (-not $pe) {
         return @{ Verdict = "Clean"; ConfidenceScore = 0; Indicators = @() }
     }
 
-    $Indicators = @()
-    $Confidence = 0
+    $indicators = @()
+    $confidence = 0
+    $knownSection = @($pe.Sections | Where-Object { $_.Name -match '^(\.vmp0|\.svp)$' })
+    $lastSection = $pe.Sections[-1]
 
-    $ExpiroSection = $PE.Sections | Where-Object { $_.Name -match "^(\.vmp0|\.svp)" }
-    if ($ExpiroSection) {
-        $Indicators += "Found known Expiro section signature ($($ExpiroSection.Name))"
-        $Confidence += 50
+    if ($knownSection.Count -gt 0) {
+        $indicators += "Known Expiro-associated section name present: $($knownSection[0].Name)"
+        $confidence += 55
     }
 
-    if ($PE.Sections -and $PE.Sections.Count -gt 0) {
-        $LastSec = $PE.Sections[-1]
-        $SecStart = $LastSec.VirtualAddress
-        $SecEnd = $SecStart + $LastSec.VirtualSize
-
-        if ($PE.AddressOfEntryPoint -ge $SecStart -and $PE.AddressOfEntryPoint -le $SecEnd) {
-            $Indicators += "AddressOfEntryPoint (0x$("{0:X}" -f $PE.AddressOfEntryPoint)) resides inside last section ($($LastSec.Name))"
-            $Confidence += 45
-        }
-
-        if ($LastSec.SizeOfRawData -ge 400000 -and $LastSec.SizeOfRawData -le 700000) {
-            $Indicators += "Trailing section raw size ($($LastSec.SizeOfRawData) B) matches Expiro payload profile"
-            $Confidence += 25
-        }
+    $sectionStart = [uint64]$lastSection.VirtualAddress
+    $sectionEnd = $sectionStart + [Math]::Max([uint64]$lastSection.VirtualSize, [uint64]$lastSection.SizeOfRawData)
+    $entryInLastSection = ([uint64]$pe.AddressOfEntryPoint -ge $sectionStart -and [uint64]$pe.AddressOfEntryPoint -lt $sectionEnd)
+    if ($entryInLastSection) {
+        $indicators += "Entry point resides in the final PE section"
+        $confidence += if ($knownSection.Count -gt 0) { 30 } else { 15 }
     }
 
-    $Verdict = "Clean"
-    if ($Confidence -ge 70) {
-        $Verdict = "Infected"
-    } elseif ($Confidence -ge 40) {
-        $Verdict = "Suspicious"
+    $largeTrailingSection = ($lastSection.SizeOfRawData -ge 400000 -and $lastSection.SizeOfRawData -le 900000)
+    if ($largeTrailingSection) {
+        $indicators += "Large appended-looking final section ($($lastSection.SizeOfRawData) bytes)"
+        $confidence += if ($knownSection.Count -gt 0) { 20 } else { 10 }
+    }
+
+    # Executable + writable final sections are a stronger anomaly than size alone.
+    $IMAGE_SCN_MEM_EXECUTE = 0x20000000
+    $IMAGE_SCN_MEM_WRITE = 0x80000000
+    $execWritable = (($lastSection.Characteristics -band $IMAGE_SCN_MEM_EXECUTE) -ne 0 -and ($lastSection.Characteristics -band $IMAGE_SCN_MEM_WRITE) -ne 0)
+    if ($execWritable) {
+        $indicators += "Final PE section is both executable and writable"
+        $confidence += 15
+    }
+
+    # Never auto-convict on common layout characteristics alone. Automatic infected
+    # verdict requires either the known section marker plus corroboration, or a very
+    # strong combination of structural anomalies.
+    $verdict = "Clean"
+    if ($knownSection.Count -gt 0 -and $confidence -ge 80) {
+        $verdict = "Infected"
+    } elseif ($knownSection.Count -eq 0 -and $entryInLastSection -and $largeTrailingSection -and $execWritable) {
+        $verdict = "Suspicious"
+        $confidence = [Math]::Min($confidence, 65)
+    } elseif ($confidence -ge 40) {
+        $verdict = "Suspicious"
     }
 
     return @{
         Family          = "Expiro PE Infector"
-        Verdict         = $Verdict
-        ConfidenceScore = $Confidence
-        Indicators      = $Indicators
+        Verdict         = $verdict
+        ConfidenceScore = $confidence
+        Indicators      = $indicators
         FilePath        = $FilePath
-        PEHeader        = $PE
+        PEHeader        = $pe
     }
 }
 
@@ -168,54 +174,56 @@ function Invoke-ExpiroRemediation {
         [switch]$DryRun
     )
 
-    $Actions = @()
-    $TargetFile = $Threat.FilePath
+    if ($Threat.Verdict -ne "Infected") {
+        return @{ Success = $false; Family = "Expiro PE Infector"; Message = "Automatic remediation blocked for non-infected Expiro verdict."; Actions = @() }
+    }
 
+    $targetFile = $Threat.FilePath
+    $actions = @()
     if ($DryRun -or $WhatIfPreference) {
         return @{
             Success = $true
-            Message = "DryRun: Would execute 4-Rung Expiro Remediation on $TargetFile"
-            Actions = @("Rung 1: Would kill active infected process if running", "Rung 2: Would attempt clean Vault blob restore", "Rung 3: Would delegate to SFC/DISM if system OS file", "Rung 4: Would report unrecoverable if missing from baseline")
+            Message = "DryRun: Would execute verified Expiro recovery pipeline on $targetFile"
+            Actions = @("Would stop matching process", "Would restore authenticated baseline", "Would delegate Windows system file repair when appropriate")
         }
     }
 
+    # Stop only processes whose executable path is the exact detected file.
     try {
-        $Hash = (Get-FileHash -Path $TargetFile -Algorithm SHA256).Hash
-        $Procs = Get-CimInstance -ClassName Win32_Process | Where-Object { $_.ExecutablePath -eq $TargetFile }
-        foreach ($Proc in $Procs) {
-            Stop-Process -Id $Proc.ProcessId -Force -ErrorAction SilentlyContinue
-            $Actions += "Rung 1: Terminated active infected process (PID: $($Proc.ProcessId))"
+        foreach ($proc in Get-CimInstance -ClassName Win32_Process -ErrorAction SilentlyContinue | Where-Object { $_.ExecutablePath -eq $targetFile }) {
+            Stop-Process -Id $proc.ProcessId -Force -ErrorAction Stop
+            $actions += "Terminated matching process PID $($proc.ProcessId)"
         }
     } catch {}
 
-    $VaultRes = Restore-FileFromVault -OriginalPath $TargetFile
-    if ($VaultRes.Success) {
-        $Actions += "Rung 2: Successfully restored clean binary from Vault ($($VaultRes.Level))"
-        return @{ Success = $true; Family = "Expiro PE Infector"; Level = $VaultRes.Level; Actions = $Actions }
+    $vaultResult = Restore-FileFromVault -OriginalPath $targetFile
+    if ($vaultResult.Success) {
+        $actions += "Restored authenticated clean baseline ($($vaultResult.Level))"
+        return @{ Success = $true; Family = "Expiro PE Infector"; Level = $vaultResult.Level; Actions = $actions }
     }
 
-    if ($TargetFile -match "(?i)^C:\\Windows\\System32\\") {
-        $Actions += "Rung 3: System OS file detected ($TargetFile). Quarantined infected file and executing native SFC & DISM repair..."
-        Protect-FileToQuarantine -FilePath $TargetFile -Reason "Expiro Infected System OS File" | Out-Null
-        try {
-            Start-Process -FilePath "sfc.exe" -ArgumentList "/scanfile=`"$TargetFile`"" -WindowStyle Hidden -Wait -ErrorAction SilentlyContinue
-            $Actions += "Executed: sfc /scanfile=`"$TargetFile`""
-        } catch {
-            $Actions += "Invoked SFC delegation background process."
+    if ($targetFile -match '(?i)^C:\\Windows\\(System32|SysWOW64)\\') {
+        $quarantine = Protect-FileToQuarantine -FilePath $targetFile -Reason "Confirmed Expiro-infected Windows system file"
+        if (-not $quarantine.Success) {
+            return @{ Success = $false; Family = "Expiro PE Infector"; Level = "Blocked"; Actions = $actions; Message = $quarantine.Message }
         }
-        return @{ Success = $true; Family = "Expiro PE Infector"; Level = "Rung-3-SFC-Delegation"; Actions = $Actions; SFCRecommended = $true }
+
+        try {
+            Start-Process -FilePath "sfc.exe" -ArgumentList "/scanfile=`"$targetFile`"" -WindowStyle Hidden -Wait -ErrorAction Stop
+            $actions += "Delegated system-file recovery to SFC"
+            return @{ Success = $true; Family = "Expiro PE Infector"; Level = "Rung-3-SFC-Delegation"; Actions = $actions; SFCRecommended = $true }
+        } catch {
+            return @{ Success = $false; Family = "Expiro PE Infector"; Level = "Rung-3-SFC-Failed"; Actions = $actions; Message = $_.Exception.Message }
+        }
     }
 
-    Protect-FileToQuarantine -FilePath $TargetFile -Reason "Expiro Infected Non-Baseline File" | Out-Null
-    $Actions += "Rung 4: File not present in baseline vault. Quarantined infected payload and flagged for user reinstall."
-    
-    return @{
-        Success           = $true
-        Family            = "Expiro PE Infector"
-        Level             = "Rung-4-Unrecoverable"
-        Actions           = $Actions
-        ReinstallRequired = $true
+    $q = Protect-FileToQuarantine -FilePath $targetFile -Reason "Confirmed Expiro infection without clean baseline"
+    if ($q.Success) {
+        $actions += "Quarantined infected non-baseline executable; clean reinstall required"
+        return @{ Success = $true; Family = "Expiro PE Infector"; Level = "Rung-4-Unrecoverable"; Actions = $actions; ReinstallRequired = $true }
     }
+
+    return @{ Success = $false; Family = "Expiro PE Infector"; Level = "Blocked"; Actions = $actions; Message = $q.Message }
 }
 
 Export-ModuleMember -Function Get-PEHeaderInfo, Get-ExpiroSignature, Test-ExpiroThreat, Invoke-ExpiroRemediation
