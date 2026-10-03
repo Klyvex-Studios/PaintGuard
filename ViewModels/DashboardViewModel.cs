@@ -1,49 +1,111 @@
+using System;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 using VaultGuard360.Services;
 
 namespace VaultGuard360.ViewModels
 {
     public class DashboardViewModel : INotifyPropertyChanged
     {
-        private string _systemStatus = "Protected";
-        private string _targetDrive = "C:\\";
-        private int _quarantineCount = 0;
+        private string _systemStatus = EngineService.Instance.IsEngineInitialized ? "Protected" : "Engine offline";
+        private string _statusDetail = EngineService.Instance.IsEngineInitialized ? "Core detection modules online" : "Protection engine is not running";
+        private string _targetDrive = @"C:\";
+        private int _quarantineCount;
+        private int _lastScanFiles;
+        private int _lastThreats;
+        private bool _isBusy;
 
-        public string SystemStatus
+        public string SystemStatus { get => _systemStatus; set { _systemStatus = value; OnPropertyChanged(); } }
+        public string StatusDetail { get => _statusDetail; set { _statusDetail = value; OnPropertyChanged(); } }
+        public string TargetDrive { get => _targetDrive; set { _targetDrive = value; OnPropertyChanged(); } }
+        public int QuarantineCount { get => _quarantineCount; set { _quarantineCount = value; OnPropertyChanged(); } }
+        public int LastScanFiles { get => _lastScanFiles; set { _lastScanFiles = value; OnPropertyChanged(); } }
+        public int LastThreats { get => _lastThreats; set { _lastThreats = value; OnPropertyChanged(); } }
+        public bool IsBusy { get => _isBusy; set { _isBusy = value; OnPropertyChanged(); } }
+
+        public DashboardViewModel()
         {
-            get => _systemStatus;
-            set { _systemStatus = value; OnPropertyChanged(); }
+            EngineService.Instance.OnEngineStateChanged += (online, state) =>
+            {
+                App.Current?.Dispatcher.Invoke(() =>
+                {
+                    SystemStatus = online ? "Protected" : "Engine offline";
+                    StatusDetail = online ? "Core detection modules online" : "Protection engine needs attention";
+                });
+            };
+            _ = RefreshQuarantineCountAsync();
         }
 
-        public string TargetDrive
+        public async Task ExecuteQuickScanAsync()
         {
-            get => _targetDrive;
-            set { _targetDrive = value; OnPropertyChanged(); }
+            if (IsBusy) return;
+            IsBusy = true;
+            StatusDetail = "Quick scan in progress";
+            NotificationService.Instance.AddNotification("Quick scan started", "Scanning Program Files with live detectors.", false);
+
+            try
+            {
+                var scan = await EngineService.Instance.ScanAsync(new[] { @"C:\Program Files" }, true);
+                LastScanFiles = scan.TotalScanned;
+                LastThreats = scan.ThreatsFound;
+                StatusDetail = scan.ThreatsFound == 0 ? "No active threat detected in quick-scan scope" : $"{scan.ThreatsFound} threat(s) require review";
+                NotificationService.Instance.AddNotification(
+                    "Quick scan complete",
+                    $"Scanned {scan.TotalScanned:N0} files; {scan.ThreatsFound} infected and {scan.SuspiciousCount} suspicious.",
+                    scan.ThreatsFound > 0);
+            }
+            catch (Exception ex)
+            {
+                StatusDetail = "Quick scan failed";
+                NotificationService.Instance.AddNotification("Quick scan failed", ex.Message, true);
+            }
+            finally
+            {
+                IsBusy = false;
+                await RefreshQuarantineCountAsync();
+            }
         }
 
-        public int QuarantineCount
+        public async Task ExecuteRemediationAsync()
         {
-            get => _quarantineCount;
-            set { _quarantineCount = value; OnPropertyChanged(); }
+            if (IsBusy) return;
+            IsBusy = true;
+            StatusDetail = "Remediation in progress";
+            try
+            {
+                var result = await EngineService.Instance.RemediateAsync(new[] { TargetDrive }, false);
+                StatusDetail = result.Message;
+                NotificationService.Instance.AddNotification(
+                    "Remediation complete",
+                    $"{result.ThreatsRemediated} threat(s) remediated, {result.FilesRestored} file(s) restored, {result.PersistenceFixed} persistence item(s) repaired.",
+                    !result.Success);
+            }
+            catch (Exception ex)
+            {
+                StatusDetail = "Remediation failed";
+                NotificationService.Instance.AddNotification("Remediation failed", ex.Message, true);
+            }
+            finally
+            {
+                IsBusy = false;
+                await RefreshQuarantineCountAsync();
+            }
         }
 
-        public void ExecuteQuickScan()
+        public async Task RefreshQuarantineCountAsync()
         {
-            NotificationService.Instance.AddNotification("Quick Scan Started", "Scanning memory, system processes, and startup run keys...", false);
-            EngineService.Instance.Log("Executing Quick Scan on C:\\Program Files...", false);
-        }
-
-        public void ExecuteRemediation()
-        {
-            NotificationService.Instance.AddNotification("Remediation Protocol Executed", $"Executed 4-Rung Remediation on {TargetDrive}. System clean.", false);
-            EngineService.Instance.Log($"4-Rung Remediation completed on {TargetDrive}.", false);
+            try
+            {
+                if (!EngineService.Instance.IsEngineInitialized) return;
+                var records = await EngineService.Instance.GetQuarantineAsync();
+                QuarantineCount = records.Count;
+            }
+            catch { }
         }
 
         public event PropertyChangedEventHandler? PropertyChanged;
         protected void OnPropertyChanged([CallerMemberName] string? name = null)
-        {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
-        }
+            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 }
