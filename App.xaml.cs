@@ -8,9 +8,10 @@ namespace VaultGuard360
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);
+            // Load the on-demand detection/remediation engine. The USB arrival watcher
+            // remains a separate, explicit control and is not treated as a full
+            // filesystem real-time antivirus service.
             EngineService.Instance.InitializeEmbeddedEngine();
-            if (EngineService.Instance.IsEngineInitialized)
-                _ = EngineService.Instance.SetUsbWatcherAsync(true);
         }
 
         protected override void OnExit(ExitEventArgs e)
