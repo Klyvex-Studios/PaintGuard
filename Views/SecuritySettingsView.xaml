@@ -18,26 +18,16 @@
                 <Border Grid.Column="0" Style="{StaticResource StitchCardStyle}">
                     <StackPanel>
                         <TextBlock Text="Removable media protection" Foreground="{StaticResource BrushTextMain}" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,14" />
-
-                        <Border Style="{StaticResource CardInnerStyle}" Margin="0,0,0,10">
-                            <DockPanel>
-                                <StackPanel Width="300">
-                                    <TextBlock Text="USB vaccine" Foreground="{StaticResource BrushTextMain}" FontSize="12" FontWeight="SemiBold" />
-                                    <TextBlock Text="Creates autorun.inf directory traps on removable media." Foreground="{StaticResource BrushTextMuted}" FontSize="10" TextWrapping="Wrap" Margin="0,3,0,0" />
-                                </StackPanel>
-                                <CheckBox IsChecked="{Binding IsUsbVaccineEnabled}" HorizontalAlignment="Right" VerticalAlignment="Center" />
-                            </DockPanel>
-                        </Border>
-
                         <Border Style="{StaticResource CardInnerStyle}">
                             <DockPanel>
                                 <StackPanel Width="300">
-                                    <TextBlock Text="AutoRun hardening" Foreground="{StaticResource BrushTextMain}" FontSize="12" FontWeight="SemiBold" />
-                                    <TextBlock Text="Applies NoDriveTypeAutoRun policy through the live engine." Foreground="{StaticResource BrushTextMuted}" FontSize="10" TextWrapping="Wrap" Margin="0,3,0,0" />
+                                    <TextBlock Text="USB &amp; AutoRun protection" Foreground="{StaticResource BrushTextMain}" FontSize="12" FontWeight="SemiBold" />
+                                    <TextBlock Text="Vaccinates removable drives only and applies a reversible per-user AutoRun policy. Existing autorun.inf files or folders are never overwritten by the vaccine." Foreground="{StaticResource BrushTextMuted}" FontSize="10" TextWrapping="Wrap" Margin="0,3,0,0" />
                                 </StackPanel>
-                                <CheckBox IsChecked="{Binding IsAutoRunHardened}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                <CheckBox IsChecked="{Binding IsRemovableMediaProtectionEnabled}" HorizontalAlignment="Right" VerticalAlignment="Center" />
                             </DockPanel>
                         </Border>
+                        <TextBlock Text="VaultGuard records the previous AutoRun setting before changing it, so disabling this option can restore the value it replaced." Foreground="{StaticResource BrushTextMuted}" FontSize="10" TextWrapping="Wrap" Margin="0,12,0,0" />
                     </StackPanel>
                 </Border>
 
@@ -64,7 +54,7 @@
                                 </DockPanel>
                             </StackPanel>
                         </Border>
-                        <TextBlock Text="The desktop app no longer relies on a separately-started localhost REST engine for normal protection operations." Foreground="{StaticResource BrushTextMuted}" FontSize="10" TextWrapping="Wrap" Margin="0,12,0,0" />
+                        <TextBlock Text="The desktop app uses its in-process PowerShell engine for normal scan, vault and remediation operations." Foreground="{StaticResource BrushTextMuted}" FontSize="10" TextWrapping="Wrap" Margin="0,12,0,0" />
                     </StackPanel>
                 </Border>
             </Grid>
@@ -72,7 +62,7 @@
             <Border Style="{StaticResource StitchCardStyle}">
                 <StackPanel>
                     <TextBlock Text="Support &amp; feedback" Foreground="{StaticResource BrushTextMain}" FontSize="15" FontWeight="SemiBold" />
-                    <TextBlock Text="Your message is opened in your local mail client. VaultGuard no longer silently posts support content to a third-party form service." Foreground="{StaticResource BrushTextMuted}" FontSize="10" TextWrapping="Wrap" Margin="0,3,0,14" />
+                    <TextBlock Text="Your message is opened in your local mail client. VaultGuard does not silently post support content to a third-party form service." Foreground="{StaticResource BrushTextMuted}" FontSize="10" TextWrapping="Wrap" Margin="0,3,0,14" />
 
                     <Grid Margin="0,0,0,12">
                         <Grid.ColumnDefinitions>
