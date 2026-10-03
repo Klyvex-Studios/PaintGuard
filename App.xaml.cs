@@ -9,6 +9,20 @@ namespace VaultGuard360
         {
             base.OnStartup(e);
             EngineService.Instance.InitializeEmbeddedEngine();
+            if (EngineService.Instance.IsEngineInitialized)
+                _ = EngineService.Instance.SetUsbWatcherAsync(true);
+        }
+
+        protected override void OnExit(ExitEventArgs e)
+        {
+            try
+            {
+                if (EngineService.Instance.IsEngineInitialized && EngineService.Instance.IsUsbWatcherRunning)
+                    EngineService.Instance.SetUsbWatcherAsync(false).GetAwaiter().GetResult();
+            }
+            catch { }
+            EngineService.Instance.Dispose();
+            base.OnExit(e);
         }
     }
 }
