@@ -8,8 +8,8 @@ namespace VaultGuard360.ViewModels
 {
     public class DashboardViewModel : INotifyPropertyChanged
     {
-        private string _systemStatus = EngineService.Instance.IsEngineInitialized ? "Protected" : "Engine offline";
-        private string _statusDetail = EngineService.Instance.IsEngineInitialized ? "Core detection modules online" : "Protection engine is not running";
+        private string _systemStatus = EngineService.Instance.IsEngineInitialized ? "Engine ready" : "Engine offline";
+        private string _statusDetail = EngineService.Instance.IsEngineInitialized ? "On-demand detection and recovery modules are online" : "Security engine is not running";
         private string _targetDrive = @"C:\";
         private int _quarantineCount;
         private int _lastScanFiles;
@@ -30,8 +30,8 @@ namespace VaultGuard360.ViewModels
             {
                 App.Current?.Dispatcher.Invoke(() =>
                 {
-                    SystemStatus = online ? "Protected" : "Engine offline";
-                    StatusDetail = online ? "Core detection modules online" : "Protection engine needs attention";
+                    SystemStatus = online ? "Engine ready" : "Engine offline";
+                    StatusDetail = online ? "On-demand detection and recovery modules are online" : "Security engine needs attention";
                 });
             };
             _ = RefreshQuarantineCountAsync();
