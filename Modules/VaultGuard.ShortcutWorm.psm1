@@ -1,6 +1,6 @@
 # ==============================================================================
 # Module: VaultGuard.ShortcutWorm.psm1
-# Purpose: Detector for Shortcut Worm Family (Vobfus, Dorkbot, Gamarue, Icon Swap)
+# Purpose: Conservative detector/remediator for shortcut-worm families
 # ==============================================================================
 
 Import-Module (Join-Path $PSScriptRoot "VaultGuard.Vault.psm1") -ErrorAction SilentlyContinue
@@ -18,7 +18,7 @@ function Get-ShortcutWormSignature {
     return @{
         Family      = "Shortcut Worm"
         Aliases     = @("Worm:Win32/Vobfus", "Win32/Dorkbot", "Win32/Gamarue", "1KB Shortcut Worm")
-        Description = "Removable drive worm that swaps folder icons via desktop.ini (SHELL32.dll,7), hides user folders, and creates malicious .lnk shortcuts."
+        Description = "Removable-drive worm patterns involving malicious shortcuts, hidden folders and icon hijacking."
         Severity    = "HIGH"
     }
 }
@@ -34,73 +34,75 @@ function Test-ShortcutWormThreat {
         return @{ Verdict = "Clean"; ConfidenceScore = 0; Indicators = @() }
     }
 
-    $Indicators = @()
-    $Confidence = 0
-    $TargetDir = Get-Item -LiteralPath $Path -Force
-
-    if (-not $TargetDir.PSIsContainer) {
+    $targetDir = Get-Item -LiteralPath $Path -Force
+    if (-not $targetDir.PSIsContainer) {
         return @{ Verdict = "Clean"; ConfidenceScore = 0; Indicators = @() }
     }
 
-    # Indicator 1: desktop.ini IconResource Hijack
-    $DesktopIni = Join-Path $TargetDir.FullName "desktop.ini"
-    if (Test-Path $DesktopIni) {
+    $indicators = @()
+    $confidence = 0
+    $suspiciousLnkFiles = @()
+
+    # A desktop.ini icon reference alone is weak evidence; keep the weight low.
+    $desktopIni = Join-Path $targetDir.FullName "desktop.ini"
+    if (Test-Path -LiteralPath $desktopIni) {
         try {
-            $IniContent = Get-Content -Path $DesktopIni -Raw -ErrorAction SilentlyContinue
-            if ($IniContent -match "SHELL32\.dll,7" -or $IniContent -match "IconResource=.*SHELL32\.dll,7") {
-                $Indicators += "desktop.ini contains folder icon swap signature (SHELL32.dll,7)"
-                $Confidence += 35
+            $iniContent = Get-Content -LiteralPath $desktopIni -Raw -ErrorAction Stop
+            if ($iniContent -match "(?i)SHELL32\.dll,7") {
+                $indicators += "desktop.ini contains the shortcut-worm icon-swap pattern"
+                $confidence += 20
             }
         } catch {}
     }
 
-    # Indicator 2: Malicious .lnk Flood Ratio
-    $LnkFiles = Get-ChildItem -LiteralPath $TargetDir.FullName -Filter "*.lnk" -ErrorAction SilentlyContinue
-    $SuspiciousLnks = 0
-
-    foreach ($Lnk in $LnkFiles) {
+    # Inspect each shortcut and retain ONLY shortcuts with suspicious execution targets.
+    foreach ($lnk in Get-ChildItem -LiteralPath $targetDir.FullName -Filter "*.lnk" -File -ErrorAction SilentlyContinue) {
         try {
-            $WshShell = New-Object -ComObject WScript.Shell
-            $Shortcut = $WshShell.CreateShortcut($Lnk.FullName)
-            $Target = $Shortcut.TargetPath
-            
-            if ($Target -match "(cmd\.exe|wscript\.exe|cscript\.exe|powershell\.exe)" -or $Shortcut.Arguments -match "\.(vbs|js|bat|exe)") {
-                $SuspiciousLnks++
+            $wshShell = New-Object -ComObject WScript.Shell
+            $shortcut = $wshShell.CreateShortcut($lnk.FullName)
+            $target = [string]$shortcut.TargetPath
+            $arguments = [string]$shortcut.Arguments
+
+            $interpreterTarget = $target -match "(?i)(cmd\.exe|wscript\.exe|cscript\.exe|powershell\.exe|pwsh\.exe)$"
+            $scriptPayload = $arguments -match "(?i)\.(vbs|vbe|js|jse|wsf|bat|cmd|ps1)(\s|$|\")"
+            $hiddenExecution = $arguments -match "(?i)(-windowstyle\s+hidden|//b|/c\s+start\s+/min)"
+
+            if (($interpreterTarget -and $scriptPayload) -or ($interpreterTarget -and $hiddenExecution)) {
+                $suspiciousLnkFiles += $lnk
             }
         } catch {}
     }
 
-    if ($SuspiciousLnks -gt 0) {
-        $Indicators += "Detected $SuspiciousLnks malicious .lnk shortcuts pointing to script interpreters"
-        $Confidence += [Math]::Min(40, 20 + ($SuspiciousLnks * 10))
+    if ($suspiciousLnkFiles.Count -gt 0) {
+        $indicators += "Detected $($suspiciousLnkFiles.Count) shortcut(s) launching script interpreters with suspicious payload arguments"
+        $confidence += [Math]::Min(55, 35 + (($suspiciousLnkFiles.Count - 1) * 10))
     }
 
-    # Indicator 3: Hidden User Directories (excluding whitelist)
-    $HiddenSubdirs = Get-ChildItem -LiteralPath $TargetDir.FullName -Directory -Force -ErrorAction SilentlyContinue | Where-Object {
+    $hiddenSubdirs = @(Get-ChildItem -LiteralPath $targetDir.FullName -Directory -Force -ErrorAction SilentlyContinue | Where-Object {
         $_.Attributes -match "Hidden" -and ($script:SystemDirWhitelist -notcontains $_.Name)
+    })
+
+    if ($hiddenSubdirs.Count -gt 0) {
+        $indicators += "Found $($hiddenSubdirs.Count) hidden non-system directorie(s)"
+        $confidence += [Math]::Min(25, 10 + ($hiddenSubdirs.Count * 5))
     }
 
-    if ($HiddenSubdirs -and $HiddenSubdirs.Count -gt 0) {
-        $Indicators += "Found $($HiddenSubdirs.Count) hidden non-system user directories"
-        $Confidence += 25
-    }
-
-    # Determine Verdict
-    $Verdict = "Clean"
-    if ($Confidence -ge 70) {
-        $Verdict = "Infected"
-    } elseif ($Confidence -ge 40) {
-        $Verdict = "Suspicious"
+    # Require corroborating behavior for an automatic infected verdict.
+    $verdict = "Clean"
+    if ($suspiciousLnkFiles.Count -gt 0 -and $confidence -ge 70) {
+        $verdict = "Infected"
+    } elseif ($confidence -ge 35) {
+        $verdict = "Suspicious"
     }
 
     return @{
         Family          = "Shortcut Worm"
-        Verdict         = $Verdict
-        ConfidenceScore = $Confidence
-        Indicators      = $Indicators
-        TargetDir       = $TargetDir.FullName
-        SuspiciousLnks  = $LnkFiles
-        HiddenDirs      = $HiddenSubdirs
+        Verdict         = $verdict
+        ConfidenceScore = $confidence
+        Indicators      = $indicators
+        TargetDir       = $targetDir.FullName
+        SuspiciousLnks  = $suspiciousLnkFiles
+        HiddenDirs      = $hiddenSubdirs
     }
 }
 
@@ -111,54 +113,46 @@ function Invoke-ShortcutWormRemediation {
         [switch]$DryRun
     )
 
-    $Actions = @()
+    if ($Threat.Verdict -ne "Infected") {
+        return @{ Success = $false; Family = "Shortcut Worm"; Actions = @(); Message = "Automatic remediation blocked for non-infected verdict." }
+    }
 
+    $actions = @()
     if ($DryRun -or $WhatIfPreference) {
         return @{
             Success = $true
-            Message = "DryRun: Would clean Shortcut Worm artifacts in $($Threat.TargetDir)"
-            Actions = @("Would remove desktop.ini hijack", "Would remove $($Threat.SuspiciousLnks.Count) malicious .lnk traps", "Would unhide $($Threat.HiddenDirs.Count) user directories")
+            Message = "DryRun: Would remediate confirmed Shortcut Worm artifacts."
+            Actions = @("Would quarantine $(@($Threat.SuspiciousLnks).Count) confirmed malicious shortcut(s)", "Would restore hidden user directories")
         }
     }
 
-    # 1. Neutralize desktop.ini Icon Hijack
-    $DesktopIni = Join-Path $Threat.TargetDir "desktop.ini"
-    if (Test-Path $DesktopIni) {
+    foreach ($lnk in @($Threat.SuspiciousLnks)) {
         try {
-            $File = Get-Item -LiteralPath $DesktopIni -Force
-            $File.Attributes = "Normal"
-            Remove-Item -Path $DesktopIni -Force -ErrorAction Stop
-            $Actions += "Removed malicious desktop.ini icon hijack"
-        } catch {
-            $Actions += "Failed to remove desktop.ini: $($_.Exception.Message)"
-        }
+            $result = Protect-FileToQuarantine -FilePath $lnk.FullName -Reason "Confirmed Shortcut Worm .lnk trap"
+            if ($result.Success) { $actions += "Quarantined malicious shortcut: $($lnk.Name)" }
+        } catch {}
     }
 
-    # 2. Quarantine & Remove Malicious .lnk Shortcuts
-    if ($Threat.SuspiciousLnks) {
-        foreach ($Lnk in $Threat.SuspiciousLnks) {
-            try {
-                Protect-FileToQuarantine -FilePath $Lnk.FullName -Reason "Shortcut Worm .lnk Trap" | Out-Null
-                $Actions += "Quarantined shortcut trap: $($Lnk.Name)"
-            } catch {}
-        }
+    foreach ($dir in @($Threat.HiddenDirs)) {
+        try {
+            $dir.Attributes = ($dir.Attributes -band (-bnot [System.IO.FileAttributes]::Hidden) -band (-bnot [System.IO.FileAttributes]::System))
+            $actions += "Restored directory visibility: $($dir.Name)"
+        } catch {}
     }
 
-    # 3. Perform Attribute Surgery on Hidden User Directories
-    if ($Threat.HiddenDirs) {
-        foreach ($Dir in $Threat.HiddenDirs) {
-            try {
-                $Dir.Attributes = "Directory"
-                $Actions += "Unhid user directory: $($Dir.Name)"
-            } catch {}
-        }
+    # Remove desktop.ini only when it contained the exact corroborating icon-swap pattern.
+    $desktopIni = Join-Path $Threat.TargetDir "desktop.ini"
+    if (Test-Path -LiteralPath $desktopIni) {
+        try {
+            $content = Get-Content -LiteralPath $desktopIni -Raw -ErrorAction Stop
+            if ($content -match "(?i)SHELL32\.dll,7") {
+                Protect-FileToQuarantine -FilePath $desktopIni -Reason "Shortcut Worm icon hijack" | Out-Null
+                $actions += "Quarantined shortcut-worm desktop.ini icon hijack"
+            }
+        } catch {}
     }
 
-    return @{
-        Success = $true
-        Family  = "Shortcut Worm"
-        Actions = $Actions
-    }
+    return @{ Success = $true; Family = "Shortcut Worm"; Actions = $actions }
 }
 
 Export-ModuleMember -Function Get-ShortcutWormSignature, Test-ShortcutWormThreat, Invoke-ShortcutWormRemediation
